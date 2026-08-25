@@ -1,0 +1,18 @@
+# Cortex agent manifest — declarative single source of truth for this worker.
+# Format: sourceable shell (META_* vars). Spec: roles/agent_building.md
+# These fields are live: launchers, docs, and doctor checks read them directly.
+# Omitted fields take the framework default. writable_paths lists the RW fence
+# BEYOND the agent own dir, as symbolic anchors (never concrete private paths).
+
+META_category=research
+META_team=research
+META_role_in_team=specialist
+META_lifecycle=persistent
+META_tier=strong
+META_cadence=disabled
+META_review_timeout=research
+META_use_notes=yes
+META_write_capable=yes
+META_writable_paths="agents/research-lead/inbox research_project"
+META_collaborates_with="research-lead"
+META_domain="research specialist: turning experiment artifacts into evidence"

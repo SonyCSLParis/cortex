@@ -1,0 +1,181 @@
+# Shared Cortex defaults.
+#
+# Keep this file shell-compatible and terse. Runtime wrappers source it
+# for genuinely shared contracts. Do not centralize single-consumer
+# launcher policy here just to remove a literal.
+
+: "${CORTEX_DEFAULT_ROOT:=${CORTEX_DIR:-${HOME}/cortex}}"
+: "${CORTEX_DEFAULT_ENV_POINTER_FILE:=${CORTEX_DEFAULT_ROOT}/environment.instruct}"
+if [[ -z "${CORTEX_DEFAULT_ENV_NAME:-}" && -n "${CORTEX_ENV:-}" ]]; then
+    CORTEX_DEFAULT_ENV_NAME="${CORTEX_ENV}"
+fi
+if [[ -z "${CORTEX_DEFAULT_ENV_NAME:-}" && -r "${CORTEX_DEFAULT_ENV_POINTER_FILE}" ]]; then
+    _cortex_env_rel="$(
+        grep -Eo 'environments/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+\.instruct' \
+            "${CORTEX_DEFAULT_ENV_POINTER_FILE}" 2>/dev/null | head -n 1 || true
+    )"
+    if [[ "${_cortex_env_rel}" =~ ^environments/([^/]+)/ ]]; then
+        CORTEX_DEFAULT_ENV_NAME="${BASH_REMATCH[1]}"
+    fi
+    unset _cortex_env_rel
+fi
+: "${CORTEX_DEFAULT_ENV_NAME:=default}"
+: "${CORTEX_DEFAULT_ENV_DIR:=${CORTEX_DEFAULT_ROOT}/environments/${CORTEX_DEFAULT_ENV_NAME}}"
+: "${CORTEX_DEFAULT_ENV_SETTINGS_FILE:=${CORTEX_DEFAULT_ENV_DIR}/settings.env}"
+if [[ -r "${CORTEX_DEFAULT_ENV_SETTINGS_FILE}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "${CORTEX_DEFAULT_ENV_SETTINGS_FILE}"
+    set +a
+fi
+# Research-team worker sandbox: "broad read, fenced write". CORTEX_RESEARCH_RO_BASE
+# is the read base — default "/" mounts the whole host read-only so research
+# workers read like the conductor and never need a per-project read allow-list
+# (a narrower colon-separated list is an opt-in). Writes stay fenced to the agent
+# dir + active project tree. CORTEX_RESEARCH_RO_MASK lists secret/credential paths
+# masked back out of that broad read (dirs -> empty tmpfs, files -> empty file),
+# so autonomous workers cannot read them; the other provider's creds are masked
+# automatically on top. Consumed by roles/research/research.sh. Override per host
+# in environments/<env>/settings.env.
+: "${CORTEX_RESEARCH_RO_BASE:=/}"
+export CORTEX_RESEARCH_RO_BASE
+: "${CORTEX_RESEARCH_RO_MASK:=${HOME}/.ssh:${HOME}/.aws:${HOME}/.config/gcloud:${HOME}/.gnupg:${HOME}/.netrc:${HOME}/.git-credentials:${HOME}/.docker:${CORTEX_DEFAULT_ROOT}/agents/conductor/secrets}"
+export CORTEX_RESEARCH_RO_MASK
+_cortex_legacy_start_agent_script="${CORTEX_DEFAULT_ROOT}/start_""agent.sh"
+if [[ -z "${CORTEX_DEFAULT_START_AGENT_SCRIPT:-}" || "${CORTEX_DEFAULT_START_AGENT_SCRIPT}" == "${_cortex_legacy_start_agent_script}" ]]; then
+    CORTEX_DEFAULT_START_AGENT_SCRIPT="${CORTEX_DEFAULT_ROOT}/scripts/start_agent.sh"
+fi
+_cortex_legacy_conductor_script="${CORTEX_DEFAULT_ROOT}/conductor"".sh"
+if [[ -z "${CORTEX_DEFAULT_CONDUCTOR_SCRIPT:-}" || "${CORTEX_DEFAULT_CONDUCTOR_SCRIPT}" == "${_cortex_legacy_conductor_script}" ]]; then
+    CORTEX_DEFAULT_CONDUCTOR_SCRIPT="${CORTEX_DEFAULT_ROOT}/cortex.sh"
+fi
+_cortex_legacy_watch_script="${CORTEX_DEFAULT_ROOT}/conductor""_watch.sh"
+if [[ -z "${CORTEX_DEFAULT_WATCH_SCRIPT:-}" || "${CORTEX_DEFAULT_WATCH_SCRIPT}" == "${_cortex_legacy_watch_script}" ]]; then
+    CORTEX_DEFAULT_WATCH_SCRIPT="${CORTEX_DEFAULT_ROOT}/scripts/watch.sh"
+fi
+unset _cortex_legacy_start_agent_script _cortex_legacy_conductor_script _cortex_legacy_watch_script
+: "${CORTEX_DEFAULT_SIGNAL_INBOX_DAEMON_SCRIPT:=${CORTEX_DEFAULT_ROOT}/scripts/signal_inbox_daemon.sh}"
+: "${CORTEX_DEFAULT_TELEGRAM_INBOX_DAEMON_SCRIPT:=${CORTEX_DEFAULT_ROOT}/scripts/telegram_inbox_daemon.sh}"
+: "${CORTEX_DEFAULT_LOGS_DIR:=${CORTEX_DEFAULT_ROOT}/logs}"
+: "${CORTEX_DEFAULT_WATCH_FILE:=${CORTEX_DEFAULT_ROOT}/agents/watch/watch.txt}"
+: "${CORTEX_DEFAULT_SIGNAL_SECRETS_FILE:=${CORTEX_DEFAULT_ROOT}/agents/conductor/secrets/signal.env}"
+: "${CORTEX_DEFAULT_TELEGRAM_SECRETS_FILE:=${CORTEX_DEFAULT_ROOT}/agents/conductor/secrets/telegram.env}"
+: "${CORTEX_DEFAULT_SIGNAL_RELAY_HOST:=${SIGNAL_RELAY_HOST:-}}"
+: "${CORTEX_DEFAULT_TELEGRAM_RELAY_HOST:=${TELEGRAM_RELAY_HOST:-${CORTEX_DEFAULT_SIGNAL_RELAY_HOST}}}"
+: "${CORTEX_DEFAULT_SIGNAL_INBOX_SESSION:=cortex_signal_inbox}"
+: "${CORTEX_DEFAULT_TELEGRAM_INBOX_SESSION:=cortex_telegram_inbox}"
+: "${CORTEX_DEFAULT_TMP_LOG_DIR:=/tmp}"
+: "${CORTEX_DEFAULT_SESSION_BACKEND:=screen}"
+_cortex_legacy_backup_targets="${CORTEX_DEFAULT_ROOT}/backup_targets.txt"
+if [[ -z "${CORTEX_DEFAULT_BACKUP_TARGETS_FILE:-}" || "${CORTEX_DEFAULT_BACKUP_TARGETS_FILE}" == "${_cortex_legacy_backup_targets}" ]]; then
+    CORTEX_DEFAULT_BACKUP_TARGETS_FILE="${CORTEX_DEFAULT_ENV_DIR}/backup_targets.txt"
+fi
+unset _cortex_legacy_backup_targets
+: "${CORTEX_DEFAULT_BACKUP_ROOT:=${CORTEX_DEFAULT_ROOT}/backups}"
+
+: "${CORTEX_DEFAULT_WATCH_INTERVAL_SECONDS:=1800}"
+: "${CORTEX_DEFAULT_SELFCHECK_INTERVAL_SECONDS:=1800}"
+: "${CORTEX_DEFAULT_STATUSREPORT_INTERVAL_SECONDS:=600}"
+# Minimum time between repeats of an identical selfcheck alert. When the
+# normalized alert body fingerprint matches the last sent envelope and
+# fewer than this many seconds have passed, the launcher suppresses the
+# re-send (still logs locally so the suppression is visible). Set to 0 to
+# disable suppression entirely.
+: "${CORTEX_DEFAULT_SELFCHECK_REALERT_SECONDS:=86400}"
+
+: "${CORTEX_DEFAULT_STALE_AGENT_SECONDS:=86400}"
+: "${CORTEX_DEFAULT_TRANSIENT_SMOKE_HIDE_SECONDS:=3600}"
+: "${CORTEX_DEFAULT_HEARTBEAT_ALIVE_SECONDS:=60}"
+: "${CORTEX_DEFAULT_HEARTBEAT_STALE_SECONDS:=300}"
+: "${CORTEX_DEFAULT_AGENT_RESTART_WRAPPER_SLEEP_SECONDS:=65}"
+: "${CORTEX_COMMIT_PERIODIC_TEXT_MIN_CHANGED_LINES:=40}"
+: "${CORTEX_DEFAULT_PROVIDER_FAILURE_COOLDOWN_SECONDS:=21600}"
+
+: "${CORTEX_DEFAULT_LOGBOOK_LIVE_MAX_LINES:=250}"
+: "${CORTEX_DEFAULT_LOGBOOK_LIVE_MAX_BYTES:=20480}"
+: "${CORTEX_DEFAULT_LOGBOOK_MIN_AGE_HOURS:=48}"
+
+: "${CORTEX_DEFAULT_TASKS_KEEP_RECENT_DONE:=25}"
+: "${CORTEX_DEFAULT_TASKS_DONE_ROTATE_MIN:=40}"
+: "${CORTEX_DEFAULT_TASKS_KEEP_RECENT_CANCELLED:=0}"
+: "${CORTEX_DEFAULT_TASKS_CANCELLED_ROTATE_MIN:=5}"
+: "${CORTEX_DEFAULT_ARCHIVE_KEEP_RECENT_FILES:=200}"
+: "${CORTEX_DEFAULT_ARCHIVE_ZIP_MIN_FILES:=400}"
+: "${CORTEX_DEFAULT_PUBLIC_REMOTE_URL:=}"
+: "${CORTEX_DEFAULT_PUBLIC_BRANCH:=main}"
+
+# Provider model tiers. Each tier names a (codex model, claude model,
+# codex reasoning effort, claude effort) tuple. Worker/role blocks pick a
+# tier rather than duplicating model/effort literals. Launch-time env
+# overrides (CODEX_MODEL, CLAUDE_MODEL, CODEX_REASONING_EFFORT,
+# CLAUDE_EFFORT, --model) still win.
+: "${CORTEX_DEFAULT_TIER_WEAK_CODEX_MODEL:=gpt-5.4-mini}"
+: "${CORTEX_DEFAULT_TIER_WEAK_CLAUDE_MODEL:=claude-sonnet-4-6}"
+: "${CORTEX_DEFAULT_TIER_WEAK_CODEX_REASONING:=low}"
+: "${CORTEX_DEFAULT_TIER_WEAK_CLAUDE_EFFORT:=low}"
+
+: "${CORTEX_DEFAULT_TIER_MEDIUM_CODEX_MODEL:=gpt-5.4}"
+: "${CORTEX_DEFAULT_TIER_MEDIUM_CLAUDE_MODEL:=claude-sonnet-4-6}"
+: "${CORTEX_DEFAULT_TIER_MEDIUM_CODEX_REASONING:=medium}"
+: "${CORTEX_DEFAULT_TIER_MEDIUM_CLAUDE_EFFORT:=medium}"
+
+: "${CORTEX_DEFAULT_TIER_STRONG_CODEX_MODEL:=gpt-5.5}"
+: "${CORTEX_DEFAULT_TIER_STRONG_CLAUDE_MODEL:=claude-opus-4-7}"
+: "${CORTEX_DEFAULT_TIER_STRONG_CODEX_REASONING:=high}"
+: "${CORTEX_DEFAULT_TIER_STRONG_CLAUDE_EFFORT:=medium}"
+export CORTEX_DEFAULT_ROOT
+export CORTEX_DEFAULT_ENV_POINTER_FILE
+export CORTEX_DEFAULT_ENV_NAME
+export CORTEX_DEFAULT_ENV_DIR
+export CORTEX_DEFAULT_ENV_SETTINGS_FILE
+export CORTEX_DEFAULT_START_AGENT_SCRIPT
+export CORTEX_DEFAULT_CONDUCTOR_SCRIPT
+export CORTEX_DEFAULT_WATCH_SCRIPT
+export CORTEX_DEFAULT_SIGNAL_INBOX_DAEMON_SCRIPT
+export CORTEX_DEFAULT_TELEGRAM_INBOX_DAEMON_SCRIPT
+export CORTEX_DEFAULT_LOGS_DIR
+export CORTEX_DEFAULT_WATCH_FILE
+export CORTEX_DEFAULT_SIGNAL_SECRETS_FILE
+export CORTEX_DEFAULT_TELEGRAM_SECRETS_FILE
+export CORTEX_DEFAULT_SIGNAL_RELAY_HOST
+export CORTEX_DEFAULT_TELEGRAM_RELAY_HOST
+export CORTEX_DEFAULT_SIGNAL_INBOX_SESSION
+export CORTEX_DEFAULT_TELEGRAM_INBOX_SESSION
+export CORTEX_DEFAULT_TMP_LOG_DIR
+export CORTEX_DEFAULT_SESSION_BACKEND
+export CORTEX_DEFAULT_BACKUP_TARGETS_FILE
+export CORTEX_DEFAULT_BACKUP_ROOT
+export CORTEX_DEFAULT_WATCH_INTERVAL_SECONDS
+export CORTEX_DEFAULT_SELFCHECK_INTERVAL_SECONDS
+export CORTEX_DEFAULT_SELFCHECK_REALERT_SECONDS
+export CORTEX_DEFAULT_STATUSREPORT_INTERVAL_SECONDS
+export CORTEX_DEFAULT_STALE_AGENT_SECONDS
+export CORTEX_DEFAULT_TRANSIENT_SMOKE_HIDE_SECONDS
+export CORTEX_DEFAULT_HEARTBEAT_ALIVE_SECONDS
+export CORTEX_DEFAULT_HEARTBEAT_STALE_SECONDS
+export CORTEX_DEFAULT_AGENT_RESTART_WRAPPER_SLEEP_SECONDS
+export CORTEX_COMMIT_PERIODIC_TEXT_MIN_CHANGED_LINES
+export CORTEX_DEFAULT_PROVIDER_FAILURE_COOLDOWN_SECONDS
+export CORTEX_DEFAULT_LOGBOOK_LIVE_MAX_LINES
+export CORTEX_DEFAULT_LOGBOOK_LIVE_MAX_BYTES
+export CORTEX_DEFAULT_LOGBOOK_MIN_AGE_HOURS
+export CORTEX_DEFAULT_TASKS_KEEP_RECENT_DONE
+export CORTEX_DEFAULT_TASKS_DONE_ROTATE_MIN
+export CORTEX_DEFAULT_TASKS_KEEP_RECENT_CANCELLED
+export CORTEX_DEFAULT_TASKS_CANCELLED_ROTATE_MIN
+export CORTEX_DEFAULT_ARCHIVE_KEEP_RECENT_FILES
+export CORTEX_DEFAULT_ARCHIVE_ZIP_MIN_FILES
+export CORTEX_DEFAULT_PUBLIC_REMOTE_URL
+export CORTEX_DEFAULT_PUBLIC_BRANCH
+export CORTEX_DEFAULT_TIER_WEAK_CODEX_MODEL
+export CORTEX_DEFAULT_TIER_WEAK_CLAUDE_MODEL
+export CORTEX_DEFAULT_TIER_WEAK_CODEX_REASONING
+export CORTEX_DEFAULT_TIER_WEAK_CLAUDE_EFFORT
+export CORTEX_DEFAULT_TIER_MEDIUM_CODEX_MODEL
+export CORTEX_DEFAULT_TIER_MEDIUM_CLAUDE_MODEL
+export CORTEX_DEFAULT_TIER_MEDIUM_CODEX_REASONING
+export CORTEX_DEFAULT_TIER_MEDIUM_CLAUDE_EFFORT
+export CORTEX_DEFAULT_TIER_STRONG_CODEX_MODEL
+export CORTEX_DEFAULT_TIER_STRONG_CLAUDE_MODEL
+export CORTEX_DEFAULT_TIER_STRONG_CODEX_REASONING
+export CORTEX_DEFAULT_TIER_STRONG_CLAUDE_EFFORT

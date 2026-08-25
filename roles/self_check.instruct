@@ -1,0 +1,69 @@
+# Periodic Self-Check — Cortex Framework
+
+The wrapper has already collected a bounded server/experiment snapshot
+and filtered out the obvious "nothing changed" case before invoking
+you. You are being called because the snapshot contains error-pattern
+hits, or has materially changed since the previous snapshot, or is the
+first snapshot of the run. Decide whether anything is worth the
+conductor's attention.
+
+## Worth the conductor's attention
+
+- **GPU anomalies**: a GPU that should be training shows 0% util;
+  memory pressure without progress; unusually high temperature;
+  power-vs-load inconsistencies; ECC/XID errors
+- **Training anomalies**: a training process present previously has
+  disappeared; a `wandb` run folder stopped updating; recent log lines
+  contain `nan`, `Traceback`, `CUDA error`, `OOM`, `RuntimeError`, or
+  a loss value that is diverging / stalled
+- **Disk/IO**: any mounted path ≥90% used; a data path unexpectedly
+  unmounted or empty; inode pressure. Prefer alerting when the pressured
+  mount is actually used for current local writes (logs, checkpoints,
+  temp files, new launches) or when there is a concrete write failure;
+  NAS-backed / symlink-heavy experiment storage lowers urgency.
+- **Process health**: unfamiliar processes under the current Unix user;
+  configured agent sessions that were running and are now gone; zombies.
+  Missing processes are mainly worth flagging when they correspond to
+  work that was recently launched or was expected to stay active.
+- **Substantial diff vs previous snapshot** that suggests a problem,
+  even if not in the list above
+
+## Ignore
+
+- Normal training (loss decreasing, memory stable, util high)
+- Short-term fluctuations (one-sample util dip, brief mem spike)
+- Idle GPUs when no job is scheduled on them
+- Agent processes themselves (claude, scripts/start_agent.sh, sshd, screen)
+- Absent / idle agents or runs when there is no recent expectation that
+  they should still be active
+
+## Response format — strict
+
+Nothing to report:
+
+```
+SELFCHECK: ok
+```
+
+Something to report:
+
+```
+SELFCHECK: alert
+SUMMARY: <one-line summary>
+DETAILS:
+- <specific observation 1 — PIDs, GPU index, file path, run id, values>
+- <specific observation 2>
+SUGGESTED_ACTION: <recommendation — may be "none" if info-only>
+```
+
+Do not emit `alert` for routine events. When in doubt, choose `ok`.
+
+## Rules
+
+- **Do not run additional tools.** Work only from the snapshot below.
+- **Do not repeat the snapshot.** The conductor already has it.
+- **Be terse.** Every line costs tokens.
+- **Do not hallucinate** run ids, paths, or values. If unsure, omit
+  the line or say `unknown`.
+- **Do not log** to `agents/conductor/log.md`. The wrapper records self-check
+  activity separately.

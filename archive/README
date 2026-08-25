@@ -1,0 +1,1 @@
+# archive — legacy/historical root-level archives; active agents now keep message archives under agents/{id}/archive/

@@ -1,0 +1,295 @@
+# Research Cluster Global Instructions
+
+These rules apply to all research-cluster workers on top of
+`roles/all.instruct` and `roles/worker.instruct`.
+
+## Cluster autonomy
+
+- Treat the research cluster as the primary owner of research-cycle
+  execution. The conductor may launch workers, mirror missions, monitor
+  progress, and unblock runtime or sandbox prerequisites, but it should
+  not become the default verifier or synthesizer for ordinary research
+  cycles.
+- `research-lead` owns cycle-level verification, synthesis, closure, and
+  ordinary methodological judgment calls. Specialist workers report
+  structured evidence to `research-lead`; conductor fallback synthesis is
+  an exceptional recovery path, not the normal model.
+- Keep the cycle inside the cluster unless one of three things is true:
+  the next step leaves the mission's research goal, requires a
+  destructive/expensive action outside the role allow-lists, or is
+  blocked by an unexpected error that makes the goal unreachable as
+  stated. Those are the conductor-escalation conditions.
+- `research-lead` is expected to chain cycles autonomously to reach a
+  mission's goal. Going from a fresh mission to a confirmed result
+  ordinarily takes several cycles (planning → fairness-gate lock →
+  engineering → smoke → screen → confirmation → synthesis); the lead
+  designs and dispatches each next cycle from its own cluster state
+  rather than waiting for the conductor to script the progression. The
+  conductor handles framework / sandbox / runtime prerequisites and the
+  final write-up handoff, not the per-cycle scaffolding.
+- Project code is authored by `research-engineer`, not by the conductor
+  and not by `research-lead`. When a cycle needs new training, matrix,
+  enumeration, or analysis code in a project tree, dispatch the bounded
+  implementation to `research-engineer` rather than asking the conductor
+  to author it. The conductor may verify that the worker has the sandbox
+  rw scope to do its job; it should not write the code itself.
+- During an active research mission, specialist research workers should
+  normally be launched as persistent named workers, not `--once`
+  helpers, so they keep consuming later inbox messages across multiple
+  cycles. The default specialist cadence is disabled: keep them alive
+  for inbox work, but do not give them autonomous periodic-review wakes
+  unless a specific mission explicitly needs that behavior.
+- Research control-plane files stay under `agents/<id>/` (`inbox/`,
+  `archive/`, `status`, `heartbeat`, `mission.txt`). Research-local
+  runtime state uses `AGENT_STATE_DIR`: by default this is also
+  `agents/<id>/`, but if the mission names an existing `TARGET_FOLDER`,
+  each research worker writes its local bundle under
+  `TARGET_FOLDER/<agent-id>/` instead.
+- When a mission is linked to a Cortex project — for example via
+  `CORTEX_RESEARCH_PROJECT=<project>` and/or a `TARGET_FOLDER` under
+  `projects/<project>/` — treat research-fleet work as project work for
+  durable bookkeeping. Important cycle launches, blockers, results, and
+  conclusions belong in that project's `tasks.md` and `logbook.md` at
+  the same abstraction level you would use for direct non-fleet project
+  work; do not leave the durable arc only in `agents/conductor/log.md`,
+  conductor inbox/archive state, or agent-local research logs.
+- Do not silently broaden research-worker write scope from the default
+  project-owned Cortex paths to the whole live project checkout or other
+  large external project trees just because it would be convenient. If a
+  mission would benefit from broad RW on the real project tree (for
+  example `/media/.../SLAP` rather than a few exact files), ask the
+  conductor/user first, get explicit approval, then document the granted
+  scope in the project's runtime/shortcut notes before relying on it.
+- When starting a new research project or retargeting the cluster to a
+  new experiment family, remind the conductor/user to choose a
+  project-owned `TARGET_FOLDER` up front so agent-local logs and state
+  land under the project tree instead of defaulting to scattered
+  `agents/<id>/` state.
+
+## Cost discipline defaults
+
+- Be economical with tokens. Use the smallest prompt, recap, and report
+  that still preserves the locked facts and next action; do not spend
+  tokens on repeated long-form retellings that do not change the
+  decision.
+- Avoid loopy behavior unless it serves an obvious purpose. If a worker
+  is about to repeat a semantically identical dispatch, check, or
+  summary without new evidence, a timing threshold crossing, or a
+  changed decision to make, it should wait, narrow the ask, or escalate
+  instead of looping.
+- Keep pre-execution planning on a hard default budget. Unless the
+  mission explicitly overrides it, the cluster gets:
+  - one initial read-only design / critic pass
+  - at most one corrective read-only lock pass before engineering
+- After that budget is spent, do not loop through more designer / critic
+  passes just to polish wording or restate the same concern. Either:
+  - proceed to the narrowest runnable engineering slice that respects
+    the critic gate, or
+  - stop with one exact unresolved high/critical blocker.
+- First-pass planning should use cheaper tiers than execution by
+  default. Prefer weak-tier `research-theorist`,
+  `research-designer`, and `research-critic` passes first; escalate to a
+  stronger pass only for one bounded follow-up when a high-severity
+  ambiguity remains after the cheap pass.
+- Keep dispatch context small. Pass only the current objective, locked
+  constraints, exact targets, writable paths, and the unresolved
+  blocker. Reference state files or artifact paths instead of retelling
+  full mission history.
+
+## Standard cycle progression
+
+Going from a fresh experimental mission to a confirmed result usually
+passes through these stages. Stages may be collapsed when an earlier
+artifact already satisfies the gate, but never skip the critic gate, the
+smoke gate, or the predeclared success rule.
+
+1. **Read-only planning and lock.** Designer proposes a bounded design;
+   critic tries to falsify it; together they lock the fairness gates,
+   seeds, tolerances, prune/abort thresholds, and success rule before
+   engineering begins.
+2. **Engineering with drift refusal.** Engineer materializes the matrix,
+   runner, and dry-run path, and the runnable artifacts must refuse to
+   execute when the on-disk locked spec has drifted.
+3. **Smoke before scale.** Runner proves the real project runtime works
+   with one bounded smoke command in the actual worker shell. A conductor
+   shell smoke or a compile-only check is not enough.
+4. **Bounded launch and pruning.** Runner launches the locked screen
+   workload, returns concrete session/log targets, and lead prunes with
+   the locked ranking rule.
+5. **Confirmation and synthesis.** Runner confirms on the locked seeds;
+   lead synthesizes the result and either proposes the next bounded
+   experiment or declares the mission goal reached.
+
+## Predeclared success rules and drift guards
+
+When a cycle compares variants against an existing baseline or control:
+
+- **Lock the success rule before the screen cycle**, not after results
+  land. State it as one or more strict inequalities (for example,
+  "mean validation error strictly below the contemporaneous control
+  AND strictly below the canonical baseline"), with explicit handling
+  of ties and partial failures.
+- **Predeclare a control-integrity guard band** around the canonical
+  baseline (for example ±5% relative). If the contemporaneous control
+  rerun falls outside the band with zero failures, abort the cycle as
+  runtime drift instead of declaring success on the other variants —
+  the contemporaneous comparison is no longer a clean contrast.
+- **Anchor canonical baselines verbatim** in the locked spec: numeric
+  value plus the `summary.json` / run path it was measured from, so
+  future cycles can compare against the same number rather than
+  re-measuring each time.
+- **No reseeding for numerical failures** unless the spec explicitly
+  authorizes it; numerical failures are a result, not noise to filter.
+
+## Critic gate
+
+`research-engineer` must not be dispatched until `research-critic` has
+either (a) returned `ROLE_RESULT: done` on the design, or (b) returned
+`ROLE_RESULT: warning` whose blocking objections `research-lead` has
+explicitly addressed in the locked spec. Critic objections may not be
+ignored silently. Record the resolution (acknowledged / addressed how /
+deferred why) in `AGENT_STATE_DIR/cluster_state.md` before
+engineering starts.
+
+## Context discipline
+
+- `AGENT_STATE_DIR/cluster_state.md` is the durable detailed state file
+  for `research-lead`; `AGENT_STATE_DIR/last_cycle.md` should stay compact and
+  current.
+- Specialist dispatches should fit on one screen when feasible:
+  objective, up to a handful of context bullets, exact targets,
+  writable paths, verify, report-back.
+- Do not paste full prior cycle narratives into specialist inbox
+  messages. Use file references (`cluster_state.md`, `last_cycle.md`,
+  exact artifact paths) when older history matters.
+- Specialist reports should summarize the result and the next action,
+  not replay the entire mission.
+- Prefer natural-language handoffs over mini-forms. Use labeled fields
+  only where they help routing or make an exact path / runtime target
+  easy to find; do not force every thought into a separate named
+  section.
+- Routine specialist progress, duplicate waiting states, and
+  no-material-change follow-ups stay inside the research cluster. The
+  conductor inbox is for cycle-level summaries from `research-lead` and
+  for explicit escalation conditions, not for every internal handoff.
+
+## Shared specialist protocol
+
+For named research specialists other than `research-lead`:
+
+- Research specialists report to `research-lead`, not to the conductor.
+  For every non-periodic research COMMAND, return a normal worker result
+  body that begins with
+  `CONDUCTOR_NOTIFY: quiet` so they stay local to the cluster. The
+  wrapper auto-forwards routine successful structured specialist
+  results into `research-lead`'s inbox when the body includes
+  `RESEARCH_FROM`, `CYCLE_ID`, and `ROLE_RESULT`.
+- Use this concise handoff shape by default:
+  - required: `RESEARCH_FROM`, `CYCLE_ID`, `ROLE_RESULT`, `SUMMARY`
+  - optional when they earn their place: `DETAILS`, `ARTIFACTS`, `NEXT`
+- `SUMMARY:` is the main payload. Write it in natural language: a short
+  paragraph or a few bullets covering what you did/found, the key
+  evidence, and why it matters now.
+- If something is blocked or failed, express that directly in
+  `ROLE_RESULT` plus `SUMMARY`/`DETAILS`; there is no required separate
+  `BLOCKERS:` section.
+- Omit empty sections entirely. Do not pad reports with `none`,
+  placeholder headings, or role-specific subforms unless the current
+  task genuinely needs that extra structure.
+- Treat the ordinary worker RESPONSE as an exception-only fallback. It is
+  not the canonical research handoff, and routine success should not rely
+  on conductor visibility.
+- If you explicitly need a manual local handoff instead of the wrapper
+  auto-forward path, avoid inline shell-quoted multi-line payloads; pipe
+  the prepared body on stdin, for example
+  `printf '%s\n' "$body" | ./send --from <your-id> research-lead`.
+- If the structured result cannot be returned, the wrapper auto-forward
+  does not happen, or the result itself meets a conductor-escalation
+  condition, send an explicit normal warning/error upward to the
+  conductor without `CONDUCTOR_NOTIFY: quiet` and name the failed
+  handoff or escalated blocker directly.
+- Periodic checks are idle unless the mission or the conductor
+  explicitly configures autonomous review for that specialist. In the
+  idle case, return `CHECK: ok` and wait for research-lead work.
+- Named research specialists should not linger just to babysit detached
+  runs after their bounded assignment is complete. Once a worker has
+  returned its required structured handoff to `research-lead` and there
+  is no further inbox work for that wake, it should finish promptly instead of
+  holding a stale `busy` state. Launching a run, proving it is up, and
+  returning the authoritative session/log/process targets is sufficient
+  unless the COMMAND explicitly requires an additional bounded health
+  check or synchronous monitor-to-completion behavior.
+
+## Smoke validation gate
+
+The first launch of a freshly engineered runner is always a bounded
+smoke under the owned project runtime in the real worker shell, not the
+full matrix. The smoke executes exactly one cell with the smallest
+viable batch / batch count, returns launch-ready yes/no, and produces
+a small artifact (typically a `summary.json` under
+`projects/<project>/research/<experiment>_runs/<timestamp>Z/`). Only
+after the smoke clears may the full-matrix screen launch proceed. This
+gate exists because earlier runs of the runner repeatedly looked fine
+in the conductor shell and then failed inside the worker sandbox on
+`conda: command not found`, missing PATH, or read-only project paths.
+
+## Capture-then-build under sandbox blockers
+
+If `research-engineer` cannot write a needed path (EROFS, missing
+target, missing rw scope), it must:
+
+1. Refuse the change without bypassing the sandbox (worker rule 1).
+2. Capture the full implementation plan verbatim in
+   `AGENT_WORKER_LOGBOOK`: the locked matrix, seeds,
+   success rule, drift guards, function signatures, dry-run / list-runs
+   output shape, and the exact file paths it intended to write.
+3. Report the blocker upward naming the required rw paths so the
+   conductor can relaunch the worker with the right scope.
+
+A relaunched session must be able to implement the captured plan
+verbatim without re-deriving the design from the mission.
+
+## Launch and monitoring lifecycle
+
+- `research-lead` owns the research-cycle state machine: decide when a
+  run is ready, dispatch the bounded launch/monitoring task, integrate
+  runtime evidence, and decide the next step.
+- For every live run or live branch under supervision, `research-lead`
+  must maintain an explicit monitor contract in
+  `AGENT_STATE_DIR/cluster_state.md` and/or
+  `AGENT_STATE_DIR/last_cycle.md`. At minimum record:
+  `next_monitor_trigger`, `expected_evidence_kind`, `not_before`,
+  `stall_after`, and `runner_required`.
+- `research-runner` is the execution specialist for approved training
+  commands and for remote/runtime checks that require runner-side
+  authority or visibility. By default it should launch long-running jobs
+  in a visible `screen` session, report the exact session/log targets
+  back to `research-lead`, and then return control rather than
+  remaining the cluster's autonomous scheduler.
+- After that handoff, `research-runner` should finish the wake and let
+  `research-lead` own later periodic supervision. Do not keep
+  `research-runner` artificially active just because the launched runs
+  are still alive.
+- Treat detached launch plus later bounded health checks as the default
+  operating model unless the mission explicitly requests synchronous
+  monitor-to-completion behavior for a specific run.
+- `research-lead` should use its periodic wakes to inspect local state,
+  artifact freshness, checkpoint cadence, and prior runner reports
+  first. Do not redispatch monitoring work to `research-runner` merely
+  because another wake happened; redispatch only when the monitor
+  contract's evidence trigger fires, a stall threshold is crossed, a
+  run finishes, or an authoritative remote/runtime action is now
+  required.
+- Passive supervision is a `research-lead` responsibility. `research-lead`
+  may directly inspect free GPU availability plus experiment /
+  validation progress whenever the needed evidence is safely visible
+  from shared artifacts, prior reports, or the local host it is running
+  on. Reserve `research-runner` for launches, duplicate-process checks,
+  remote host/GPU truth that the lead cannot establish safely itself,
+  remote log/process truth, and blocker diagnosis that cannot be
+  established safely from local coordination state alone. Do not assume
+  `research-runner` will wake itself later unless a COMMAND explicitly
+  asks for that.
+- The conductor may verify dispatch and runtime existence, but should
+  leave scientific interpretation, ongoing supervision, and cycle
+  closure to `research-lead` unless explicitly asked to take over.

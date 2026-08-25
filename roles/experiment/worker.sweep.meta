@@ -1,0 +1,15 @@
+# Cortex agent manifest — declarative single source of truth for this worker.
+# Format: sourceable shell (META_* vars). Spec: roles/agent_building.md
+
+META_category=experiment
+META_lifecycle=persistent
+META_tier=medium
+META_cadence=hourly
+META_review_timeout=research
+META_provider_pin=codex
+META_effort_override=high
+META_write_capable=yes
+META_use_notes=yes
+META_use_cheatsheet=yes
+META_use_shortcuts=yes
+META_domain="autonomous deep-learning experiment sweeper: monitors, analyzes, launches, and iterates within its mission"

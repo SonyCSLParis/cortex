@@ -1,0 +1,1 @@
+# agents/conductor/inbox — agents write RESPONSE/STATUS files here; conductor reads and archives them

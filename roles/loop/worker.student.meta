@@ -1,0 +1,16 @@
+# Cortex agent manifest — declarative single source of truth for this worker.
+# Format: sourceable shell (META_* vars). Spec: roles/agent_building.md
+# These fields are live: launchers, docs, and doctor checks read them directly.
+# Omitted fields take the framework default. writable_paths lists the RW fence
+# BEYOND the agent own dir, as symbolic anchors (never concrete private paths).
+
+META_category=loop
+META_lifecycle=on-demand
+META_tier=medium
+META_cadence=disabled
+META_review_timeout=long
+META_write_capable=yes
+META_writable_paths="agents/supervisor/inbox"
+META_command_scope=custom
+META_collaborates_with="supervisor"
+META_domain="loop experiment: implements rounds issued by the supervisor worker"

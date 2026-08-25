@@ -1,0 +1,18 @@
+# Cortex agent manifest — declarative single source of truth for this worker.
+# Format: sourceable shell (META_* vars). Spec: roles/agent_building.md
+# These fields are live: launchers, docs, and doctor checks read them directly.
+# Omitted fields take the framework default. writable_paths lists the RW fence
+# BEYOND the agent own dir, as symbolic anchors (never concrete private paths).
+
+META_category=framework
+META_lifecycle=persistent
+META_tier=strong
+META_cadence=daily
+META_review_timeout=long
+META_provider_pin=codex
+META_effort_override=high
+META_write_capable=no
+META_use_notes=yes
+META_use_cheatsheet=no
+META_use_shortcuts=no
+META_domain="philosophical self-reflection over Cortex as a whole; writes its treatise to own notes.txt on 24h cadence"

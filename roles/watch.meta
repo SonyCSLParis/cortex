@@ -1,0 +1,16 @@
+# Cortex watch-role manifest — declarative defaults for the watch agent.
+# Read by scripts/watch.sh at startup (sibling of roles/watch.instruct /
+# roles/watch.sh; watch is a singleton role, not a worker, so it does not
+# use the roles/<category>/worker.<id>.meta resolver).
+# Env vars and CLI flags still override everything here.
+#
+# META_tier: weak|medium|strong — maps to the provider model/effort tuples
+#   in config/cortex_defaults.sh (CORTEX_DEFAULT_TIER_*).
+# META_wake_interval: seconds between watch wakes (watch's cadence analog;
+#   falls back to CORTEX_DEFAULT_WATCH_INTERVAL_SECONDS when unset).
+# META_use_notes: yes|no — whether watch may keep local scratch memory in
+#   agents/watch/notes.txt.
+
+META_tier=medium
+META_wake_interval=3600
+META_use_notes=yes

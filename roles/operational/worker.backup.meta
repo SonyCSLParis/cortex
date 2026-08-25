@@ -1,0 +1,17 @@
+# Cortex agent manifest — declarative single source of truth for this worker.
+# Format: sourceable shell (META_* vars). Spec: roles/agent_building.md
+# These fields are live: launchers, docs, and doctor checks read them directly.
+# Omitted fields take the framework default. writable_paths lists the RW fence
+# BEYOND the agent own dir, as symbolic anchors (never concrete private paths).
+
+META_category=operational
+META_core=yes
+META_lifecycle=persistent
+META_tier=weak
+META_cadence=daily
+META_review_timeout=short
+META_write_capable=yes
+META_writable_paths="env:backup_root"
+META_owns_scripts="roles/operational/backup/backup_snapshot.sh roles/operational/backup/test_backup_freshness_predicate.sh"
+META_collaborates_with="environment"
+META_domain="snapshot creation from backup_targets.txt; backup-freshness tracking"

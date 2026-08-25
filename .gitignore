@@ -1,0 +1,80 @@
+# Python cache
+__pycache__/
+
+# Runtime agent state
+agents/*/heartbeat
+agents/*/info
+agents/*/status
+agents/conductor/sessions/**
+agents/conductor/active_sessions.tsv
+agents/*/last_signal
+agents/*/worker_review_last_ts
+agents/*/worker_review_notify_state
+agents/*/selfcheck_last_ts
+agents/*/selfcheck_alert_state
+agents/*/statusreport_last_ts
+agents/*/selfcheck_*.snapshot
+agents/*/status_latest.snapshot
+agents/*/prompt_context_latest.snapshot
+agents/*/working
+agents/*/selfcheck_unparseable_*.txt
+agents/*/.codex_last.tmp
+agents/*/codex_state/**
+agents/compressor/.noop_fingerprint
+agents/compressor/.layout_advisory_state
+agents/*/inbox/*.msg
+inboxes/*/*.msg
+inboxes/telegram_attachments/**
+agents/*/lock/**
+agents/watch/watch.txt
+agents/watch/rollover_kill_state.tsv
+agents/watch/incident_state
+agents/supervisor/last_round.md
+agents/supervisor/loop_state.json
+users/*/.prompt_log_state.json
+users/*/.prompt_log_state.json.lock
+users/*/usage/*.tsv.bak.*
+
+# Live broadcast queue
+broadcast/*.msg
+
+# Wrapper/runtime logs
+logs/*.log
+
+# Lock files
+*.lock
+hs_err_pid*.log
+
+# Local and binary artifacts
+.nfs*
+*.swp
+*.pt
+*.pt_*
+*.tar.gz
+*.zip
+*.png
+*.pdf
+
+# Logo assets (explicitly committed despite the *.png blanket above)
+!assets/cortex_logo.png
+!assets/presentation_cortex.pdf
+!projects/presentation_cortex/assets/cortex_logo.png
+
+# Cortex secrets — never commit
+agents/conductor/secrets/*
+!agents/conductor/secrets/.gitkeep
+config/public_forbidden_patterns.local
+
+# Repo-local Claude Code settings: personal allow-list / sandbox overrides
+# that must never be shared. The shared `.claude/settings.json` is tracked.
+.claude/settings.local.json
+
+# SLAP generated/runtime bulk
+projects/slap/.cache/
+projects/slap/integration/.cache/
+projects/slap/integration/results/
+projects/slap/integration/marble/.git/
+projects/slap/integration/marble/.venv/
+projects/slap/research/**/_feature_cache/
+projects/slap/research/**/*.tmp.*
+projects/slap/research/experiment_slap_nondeterminism_source_ablation/*.npy

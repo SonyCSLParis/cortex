@@ -1,0 +1,1 @@
+# broadcast — conductor writes BROADCAST files here; every agent picks up, responds, then marks .seen

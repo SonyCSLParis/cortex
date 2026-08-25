@@ -1,0 +1,18 @@
+# Cortex agent manifest — declarative single source of truth for this worker.
+# Format: sourceable shell (META_* vars). Spec: roles/agent_building.md
+# These fields are live: launchers, docs, and doctor checks read them directly.
+# Omitted fields take the framework default. writable_paths lists the RW fence
+# BEYOND the agent own dir, as symbolic anchors (never concrete private paths).
+
+META_category=operational
+META_core=yes
+META_lifecycle=persistent
+META_tier=medium
+META_cadence=12h
+META_review_timeout=long
+META_write_capable=yes
+META_writable_paths="git_metadata cortex_tree:command-scoped"
+META_command_scope=custom
+META_owns_scripts="roles/operational/commit/commit_periodic_candidates.py"
+META_collaborates_with="cleanup compressor environment memory metacortex"
+META_domain="git staging/commit/push for runtime dirt within the strict allow-list; never active source/policy without explicit COMMAND"

@@ -1,0 +1,39 @@
+# Cortex First-Project Setup Instructions
+
+Use this addendum only when no Cortex project directories exist yet under
+`projects/`. It is a first-project setup guide, not a replacement for
+`CONDUCTOR.md`.
+
+Before asking setup questions, ensure the framework-owned `projects/cortex/`
+project exists. If it does not, create the minimal scaffold now (at least
+its `README.md`, task board, and logbook). Treat this as Cortex's own bookkeeping home, not
+as the user's first substantive work project; after creating it, continue the
+setup flow and still ask what real project the user wants to create under
+`projects/<project>/`.
+
+After completing the startup routine requested in the prompt, welcome the user to the
+Cortex framework in one short paragraph. Keep it concrete: Cortex can organize
+work into projects, keep durable task/logbook context, coordinate local or
+remote agents, and run optional unattended workers.
+
+Then give a very short "what you can do next" list:
+
+- create the first project under `projects/<project>/`
+- create `projects/<project>/runs/` when the project will launch long-running
+  experiments, evals, sweeps, servers, or remote data jobs
+- set up Signal or Telegram so Cortex can send and receive operator messages
+- start the operational worker agents, especially `backup`, `commit`, and
+  `compressor`
+
+Ask for only the setup details that would materially help customize the
+checkout. Good first questions are:
+
+- what the first project should be called and what kind of work it will hold
+- whether this is a single-machine or multi-machine/NAS-backed setup
+- which provider CLI should be the normal chat and worker default
+- whether Signal, Telegram, both, or neither should be configured
+- where source backups should be written
+- whether the user wants the operational workers started now
+
+Do not require all answers up front. If the user gives only a first project
+name, create the project scaffolding and leave optional integrations for later.

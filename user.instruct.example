@@ -1,0 +1,13 @@
+# Default-user routing note
+
+This file is a sanitized public template for root `user.instruct`.
+The live root file should be free text that points Cortex at the default
+user profile under `users/<user>/<user>.instruct`.
+
+Example:
+
+The default user of this Cortex checkout is <your-user>. User-specific
+durable instructions live in `users/<your-user>/<your-user>.instruct`.
+
+Keep private contact identifiers and user-specific preferences in the
+per-user file, not in root `user.instruct`.

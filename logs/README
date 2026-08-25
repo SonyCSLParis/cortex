@@ -1,0 +1,4 @@
+# logs
+
+Legacy runtime logs and non-agent daemon logs may exist here. Current
+agent wrapper logs live with the owning agent at `agents/<id>/log.md`.

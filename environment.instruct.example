@@ -1,0 +1,14 @@
+# Default-environment routing note
+
+This file is a sanitized public template for root `environment.instruct`.
+The live root file should be free text that points Cortex at the default
+environment profile under `environments/<env>/<env>.instruct`.
+
+Example:
+
+The default environment of this Cortex checkout is <your-env>.
+Environment-specific durable instructions live in
+`environments/<your-env>/<your-env>.instruct`.
+
+Keep private hostnames, backup roots, remotes, and deployment-specific
+paths in the environment directory, not in generic framework files.
