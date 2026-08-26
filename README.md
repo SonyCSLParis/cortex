@@ -99,10 +99,13 @@ groups whose work spans projects, sessions, experiments, or machines. It is a
 particularly good fit when you want agents to participate in real work while
 leaving an understandable, durable record behind.
 
-Cortex is probably not the right layer if your primary goal is to build a
-customer-facing agent application, define a production workflow graph, obtain
-an enterprise hosted control plane, or use a turnkey chat assistant without
-maintaining a local workspace.
+Cortex is deliberately a single-operator framework, not a multi-user system:
+the `users/` folder keeps private preferences and reminders cleanly separated,
+rather than providing accounts or shared-user coordination. It is probably not
+the right layer if your primary goal is to build a customer-facing agent
+application, define a production workflow graph, obtain an enterprise hosted
+control plane, or use a turnkey chat assistant without maintaining a local
+workspace.
 
 ## Quickstart
 

@@ -211,6 +211,17 @@ missing decision — then act on the answer.
 
 ---
 
+## Prefer direct user actions
+
+When a problem can be resolved faster through the user's input, credentials,
+approval, or local action, ask the user to take that action before attempting
+independent workarounds. Name the needed action and why it will resolve the
+blocker. For example, if a worker start fails because the provider is not
+authenticated, ask the user to sign in rather than altering authentication or
+provider configuration yourself.
+
+---
+
 ## Surface unexpected state
 
 When you observe workspace state that you did not produce — files
