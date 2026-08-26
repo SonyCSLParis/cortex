@@ -421,6 +421,7 @@ follow.
   `environments/<env>/backup_excludes/*.txt` files, and runs
   `bash roles/operational/backup/backup_snapshot.sh` on its periodic cadence.
 - **Why / gotcha**: `backup` is intentionally source-oriented. The default manifest protects the Cortex worktree plus the concrete live source trees listed in the configured environment manifest; worktree-style backups materialize unsafe symlink targets as real content, so external trees reached through in-repo symlinks do not need separate redundant manifest entries. It still does **not** mirror large checkpoint/output trees by default, because that would explode storage under current disk pressure. Add those paths explicitly only when you mean it. Override `BACKUP_ROOT`, `BACKUP_KEEP`, or `BACKUP_TARGETS_FILE` at launch if needed, and use the environment notes for the current concrete backup roots/mirrors.
+- **Why / gotcha**: the launcher refuses to start this worker until the backup root is explicitly configured and the selected manifest contains an active target. Its `CONFIGURATION_REQUIRED` error names the missing setup action; have the user configure it before retrying.
 - **Last verified**: 2026-04-24.
 
 ### Starting the `commit` worker
@@ -434,6 +435,7 @@ follow.
 
   `roles/operational/worker.commit.instruct` is appended automatically because the worker id is `commit`.
 - **Why / gotcha**: `commit` now has two lanes. The normal lane is still explicit: a broad request like "package the current safe/reasonable subset in this repo" is enough for it to infer sensible commit buckets, but source/docs/policy commits still require that explicit request. Separately, its periodic lane default comes from the role-owned metadata/shell files under `roles/`; that lane may autonomously commit only a strict runtime-dirt allow-list: agent `log.md`, `logbook.md`, `logbook.summary.md`, project `logbook.summary.md`, and archived `*.msg` audit files. It must not absorb `.instruct` edits, docs, scripts, environment files, central conductor bookkeeping, or live coordination state into that periodic lane. That periodic lane is threshold-gated: before it stages anything, it must run `python3 roles/operational/commit/commit_periodic_candidates.py --paths-only`; runtime text files stay uncommitted until they reach `CORTEX_COMMIT_PERIODIC_TEXT_MIN_CHANGED_LINES`, including `agents/commit/log.md`.
+- **Why / gotcha**: the launcher refuses to start this worker until `CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL` in the private environment settings matches a configured private Git push remote. A public export remote does not qualify; the `CONFIGURATION_REQUIRED` error tells the conductor to ask the user for setup rather than starting the worker.
 - **Runtime note**: periodic `commit` wakes keep only `agents/commit/` writable. Explicit commit COMMANDs should name exact existing files/directories under `WRITABLE_PATHS:`; the launcher adds matching git metadata automatically and keeps `.git/hooks` read-only unless `COMMIT_RW_ALLOW_HOOKS: yes` is present.
 - **Last verified**: 2026-05-07.
 

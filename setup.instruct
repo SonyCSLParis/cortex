@@ -37,6 +37,10 @@ materially affect the checkout the user intends to run:
   snapshot destination, additional source coverage, and retention; store
   runtime overrides in `environments/{env}/settings.env` and coverage in its
   backup manifest.
+- Ask whether a private operational Git remote should be configured now or
+  later. The `commit` worker will not start until
+  `CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL` in the private environment settings
+  matches a configured Git push remote; it must not be the public export remote.
 - Ask whether Signal, Telegram, both, or neither should be configured. If a
   channel is enabled, collect its relay and credential details only then; keep
   credentials in the private secrets directory, not in `settings.env`.

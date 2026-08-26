@@ -685,6 +685,70 @@ EOF
     trap - RETURN
 }
 
+test_operational_worker_config_gate() {
+    local output rc manifest private_remote
+
+    set +e
+    output="$(
+        env -u CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL \
+            -u CORTEX_DEFAULT_BACKUP_ROOT \
+            -u CORTEX_DEFAULT_BACKUP_ROOT_CONFIGURED \
+            -u CORTEX_DEFAULT_ENV_DIR \
+            -u CORTEX_DEFAULT_ENV_SETTINGS_FILE \
+            CORTEX_DIR="${CORTEX_DIR}" \
+            CORTEX_DEFAULT_ENV_NAME=unconfigured-gate \
+            bash "${CORTEX_DIR}/scripts/start_agent_screen.sh" --role worker --name commit --dry-run 2>&1
+    )"
+    rc=$?
+    set -e
+    [[ ${rc} -eq 2 ]] || fail "commit gate should reject a missing private remote: ${output}"
+    printf '%s\n' "${output}" | grep -Fq 'CONFIGURATION_REQUIRED: commit worker needs CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL' \
+        || fail "commit gate did not name the required private remote: ${output}"
+
+    set +e
+    output="$(
+        env -u CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL \
+            -u CORTEX_DEFAULT_BACKUP_ROOT \
+            -u CORTEX_DEFAULT_BACKUP_ROOT_CONFIGURED \
+            -u CORTEX_DEFAULT_ENV_DIR \
+            -u CORTEX_DEFAULT_ENV_SETTINGS_FILE \
+            CORTEX_DIR="${CORTEX_DIR}" \
+            CORTEX_DEFAULT_ENV_NAME=unconfigured-gate \
+            bash "${CORTEX_DIR}/scripts/start_agent_screen.sh" --role worker --name backup --dry-run 2>&1
+    )"
+    rc=$?
+    set -e
+    [[ ${rc} -eq 2 ]] || fail "backup gate should reject a default backup root: ${output}"
+    printf '%s\n' "${output}" | grep -Fq 'CONFIGURATION_REQUIRED: backup worker needs an explicit backup root' \
+        || fail "backup gate did not name the required root: ${output}"
+
+    manifest="${TMP_ROOT}/backup-targets.txt"
+    printf 'cortex_worktree|repo_worktree|.\n' > "${manifest}"
+    private_remote="$(git -C "${CORTEX_DIR}" remote get-url --push origin)"
+    output="$(
+        env -u CORTEX_DEFAULT_ENV_DIR -u CORTEX_DEFAULT_ENV_SETTINGS_FILE \
+            CORTEX_DIR="${CORTEX_DIR}" \
+            CORTEX_DEFAULT_ENV_NAME=unconfigured-gate \
+            CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL="${private_remote}" \
+            CORTEX_DEFAULT_BACKUP_ROOT="${TMP_ROOT}/backups" \
+            BACKUP_TARGETS_FILE="${manifest}" \
+            bash "${CORTEX_DIR}/scripts/start_agent_screen.sh" --role worker --name commit --dry-run 2>&1
+    )"
+    printf '%s\n' "${output}" | grep -Fq 'worker_commit' \
+        || fail "commit gate should allow a matching private remote: ${output}"
+
+    output="$(
+        env -u CORTEX_DEFAULT_ENV_DIR -u CORTEX_DEFAULT_ENV_SETTINGS_FILE \
+            CORTEX_DIR="${CORTEX_DIR}" \
+            CORTEX_DEFAULT_ENV_NAME=unconfigured-gate \
+            CORTEX_DEFAULT_BACKUP_ROOT="${TMP_ROOT}/backups" \
+            BACKUP_TARGETS_FILE="${manifest}" \
+            bash "${CORTEX_DIR}/scripts/start_agent_screen.sh" --role worker --name backup --dry-run 2>&1
+    )"
+    printf '%s\n' "${output}" | grep -Fq 'worker_backup' \
+        || fail "backup gate should allow an explicit root and target manifest: ${output}"
+}
+
 test_worker_environment_wandb_export() {
     local env_home output
 
@@ -1675,6 +1739,7 @@ run_step "research project runtime env" test_research_project_runtime_env
 run_step "agent info records research runtime" test_agent_info_records_research_runtime
 run_step "screen restart guard" test_start_agent_screen_research_restart_guard
 run_step "screen restart waits for safe shutdown" test_start_agent_screen_restart_waits_for_safe_shutdown
+run_step "operational worker configuration gate" test_operational_worker_config_gate
 run_step "worker environment W&B netrc export" test_worker_environment_wandb_export
 run_step "research command scope rw paths" test_research_command_scope_rw_paths
 run_step "research lead inbox drain before periodic" test_research_lead_inbox_drain_before_periodic

@@ -28,6 +28,11 @@ if [[ -r "${CORTEX_DEFAULT_ENV_SETTINGS_FILE}" ]]; then
     . "${CORTEX_DEFAULT_ENV_SETTINGS_FILE}"
     set +a
 fi
+if [[ -n "${CORTEX_DEFAULT_BACKUP_ROOT:-}" ]]; then
+    CORTEX_DEFAULT_BACKUP_ROOT_CONFIGURED=1
+else
+    CORTEX_DEFAULT_BACKUP_ROOT_CONFIGURED=0
+fi
 # Research-team worker sandbox: "broad read, fenced write". CORTEX_RESEARCH_RO_BASE
 # is the read base — default "/" mounts the whole host read-only so research
 # workers read like the conductor and never need a per-project read allow-list
@@ -107,6 +112,7 @@ unset _cortex_legacy_backup_targets
 : "${CORTEX_DEFAULT_ARCHIVE_ZIP_MIN_FILES:=400}"
 : "${CORTEX_DEFAULT_PUBLIC_REMOTE_URL:=}"
 : "${CORTEX_DEFAULT_PUBLIC_BRANCH:=main}"
+: "${CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL:=}"
 
 # Provider model tiers. Each tier names a (codex model, claude model,
 # codex reasoning effort, claude effort) tuple. Worker/role blocks pick a
@@ -149,6 +155,7 @@ export CORTEX_DEFAULT_TMP_LOG_DIR
 export CORTEX_DEFAULT_SESSION_BACKEND
 export CORTEX_DEFAULT_BACKUP_TARGETS_FILE
 export CORTEX_DEFAULT_BACKUP_ROOT
+export CORTEX_DEFAULT_BACKUP_ROOT_CONFIGURED
 export CORTEX_DEFAULT_WATCH_INTERVAL_SECONDS
 export CORTEX_DEFAULT_SELFCHECK_INTERVAL_SECONDS
 export CORTEX_DEFAULT_SELFCHECK_DISK_ALERT_PERCENT
@@ -175,6 +182,7 @@ export CORTEX_DEFAULT_ARCHIVE_KEEP_RECENT_FILES
 export CORTEX_DEFAULT_ARCHIVE_ZIP_MIN_FILES
 export CORTEX_DEFAULT_PUBLIC_REMOTE_URL
 export CORTEX_DEFAULT_PUBLIC_BRANCH
+export CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL
 export CORTEX_DEFAULT_TIER_WEAK_CODEX_MODEL
 export CORTEX_DEFAULT_TIER_WEAK_CLAUDE_MODEL
 export CORTEX_DEFAULT_TIER_WEAK_CODEX_REASONING

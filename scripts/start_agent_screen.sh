@@ -338,6 +338,61 @@ research_restart_guard_reason() {
     return 1
 }
 
+backup_manifest_has_target() {
+    local manifest="$1"
+    [[ -f "${manifest}" ]] || return 1
+    awk -F '|' '
+        /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+        NF == 3 && $1 ~ /[^[:space:]]/ && $2 ~ /[^[:space:]]/ && $3 ~ /[^[:space:]]/ { found=1 }
+        END { exit !found }
+    ' "${manifest}"
+}
+
+operational_remote_is_configured() {
+    local expected="${CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL:-}"
+    local public_url="${CORTEX_DEFAULT_PUBLIC_REMOTE_URL:-}"
+    local remote remote_url
+
+    [[ -n "${expected}" ]] || return 1
+    [[ "${expected}" != "${public_url}" ]] || return 1
+    while IFS= read -r remote; do
+        remote_url="$(git -C "${CORTEX_DIR}" remote get-url --push "${remote}" 2>/dev/null || true)"
+        [[ "${remote_url}" == "${expected}" ]] && return 0
+    done < <(git -C "${CORTEX_DIR}" remote 2>/dev/null)
+    return 1
+}
+
+require_operational_worker_config() {
+    local backup_targets="${BACKUP_TARGETS_FILE:-${CORTEX_DEFAULT_BACKUP_TARGETS_FILE}}"
+    local backup_root_configured="${CORTEX_DEFAULT_BACKUP_ROOT_CONFIGURED:-0}"
+
+    [[ "${role}" == "worker" ]] || return 0
+    case "${agent_id}" in
+        backup)
+            [[ -n "${BACKUP_ROOT:-}" ]] && backup_root_configured=1
+            if [[ "${backup_root_configured}" != "1" ]]; then
+                printf 'CONFIGURATION_REQUIRED: backup worker needs an explicit backup root. Set CORTEX_DEFAULT_BACKUP_ROOT in environments/<env>/settings.env (or BACKUP_ROOT for this launch), then ask the user to configure it. No worker started.\n' >&2
+                return 1
+            fi
+            if ! backup_manifest_has_target "${backup_targets}"; then
+                printf 'CONFIGURATION_REQUIRED: backup worker needs an intentional backup manifest with at least one target. Configure environments/<env>/backup_targets.txt (or BACKUP_TARGETS_FILE for this launch), then ask the user to configure it. No worker started.\n' >&2
+                return 1
+            fi
+            ;;
+        commit)
+            if ! operational_remote_is_configured; then
+                printf 'CONFIGURATION_REQUIRED: commit worker needs CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL in environments/<env>/settings.env, matching a configured private Git push remote and distinct from the public export remote. Ask the user to configure it. No worker started.\n' >&2
+                return 1
+            fi
+            ;;
+    esac
+    return 0
+}
+
+if ! require_operational_worker_config; then
+    exit 2
+fi
+
 start_args=(--role "${role}")
 if [[ "${role}" != "watch" && -n "${name}" ]]; then
     start_args+=(--name "${name}")
