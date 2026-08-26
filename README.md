@@ -113,6 +113,7 @@ Minimum:
 - Linux or macOS
 - `bash`
 - `git`
+- Python 3
 - one provider CLI that Cortex can launch, usually `claude` or `codex`
 
 Commonly useful:
