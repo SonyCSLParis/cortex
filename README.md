@@ -69,9 +69,10 @@ The conductor is the main entry point. For a typical request it:
 1. identifies the relevant project, user preferences, and environment facts
 2. inspects existing tasks, decisions, and artifacts instead of starting from
    an empty conversation
-3. answers directly or delegates a bounded task to an appropriate agent
-4. verifies the outcome and records only the information that should survive
-5. returns a concise result to the user
+3. answers directly or delegates a bounded task to an appropriate agent (only
+   on explicit request)
+5. verifies the outcome and records only the information that should survive
+6. returns a concise result to the user
 
 Cortex remains useful with only the conductor. A larger fleet is optional:
 read-only nodes can inspect or compute, workers can perform scoped changes, and
