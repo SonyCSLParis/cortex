@@ -16,6 +16,7 @@ public_framework_files() {
         LICENSE
         PROTOCOL.md
         README.md
+        SECURITY.md
         SHORTCUTS.md
         setup.instruct
         environment.instruct.example

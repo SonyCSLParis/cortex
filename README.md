@@ -130,7 +130,7 @@ Commonly useful:
 Clone the repo, then start the conductor:
 
 ```bash
-git clone <repo-url> cortex
+git clone https://github.com/SonyCSLParis/cortex.git cortex
 cd cortex
 bash cortex.sh
 ```
@@ -536,9 +536,9 @@ In practice:
 
 - framework files should stay generic and reusable
 - live `users/`, `environments/`, `projects/`, agent state, inboxes, and logs
-are operational/private by default
+  are operational/private by default
 - public publication should go through `scripts/sync_public.sh`, which builds a
-fresh sanitized export instead of pushing the live operational branch
+  fresh sanitized export instead of pushing the live operational branch
 
 If you are adapting Cortex for your own work, keep private facts in the user or
 environment layer rather than baking them into framework docs or scripts.
@@ -560,11 +560,10 @@ A good progression is:
 
 1. conductor only
 2. conductor + one or two workers you actually need (good candidates for
-
-everyday use are the "operational workers" above)
+   everyday use are the "operational workers" above)
 3. add watch if unattended monitoring becomes useful
 4. add remote nodes or research specialists when the workload genuinely wants
-  parallelism
+   parallelism
 
 Do not launch a full fleet just because the roles exist. Cortex is more useful
 when the running agents reflect the real workload.
