@@ -14,7 +14,7 @@ inboxes, project notes, and operational state.
 [Quickstart](#quickstart) · [How it works](#how-cortex-works) ·
 [Who it is for](#who-cortex-is-for) · [Examples](#example-workflows)
 
-## Chats End. Projects Continue.
+## Give long-running work a durable home.
 
 Research and engineering work may last for months, but AI conversations are
 episodic. Decisions become scattered across chats, experiments outlive their
