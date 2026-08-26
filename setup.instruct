@@ -19,8 +19,9 @@ remote agents, and run optional unattended workers.
 Then give a very short "what you can do next" list:
 
 - create the first project under `projects/<project>/`
-- create `projects/<project>/runs/` when the project will launch long-running
-  experiments, evals, sweeps, servers, or remote data jobs
+- bring an existing codebase, notes, or data into the first project
+- add a private environment profile for remote hosts, storage, or credentials
+- configure backups/repositories before the project accumulates important work
 - set up Signal or Telegram so Cortex can send and receive operator messages
 - start the operational worker agents, especially `backup`, `commit`, and
   `compressor`

@@ -388,6 +388,11 @@ to the task tier; workers need explicit scope and tracked work needs a
 source/policy work, and any explicit commit scope must name exactly what it
 may include.
 
+Before starting `backup` or `commit`, verify its required configured
+destinations are real, non-default values. If they are absent or still template
+defaults, do not launch; explain which destination is missing and ask the user
+to configure it.
+
 ### Signal message handling
 
 Messenger ingress is watch-owned: the conductor neither reads messenger

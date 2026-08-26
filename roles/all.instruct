@@ -92,6 +92,10 @@ specific user's identity, contact details, hostnames, private paths,
 remote names, project ids, experiment ids, dataset paths, or deployment
 topology.
 
+When writing generic framework rules, refer to the person generically (for
+example, “the user”); never use the active user's name. Names and other
+user-specific wording belong only in the owning `users/{user}/` surfaces.
+
 Durable facts live in the narrowest private home that owns them:
 
 - `users/{user}/{user}.instruct`: user-specific preferences, contact
