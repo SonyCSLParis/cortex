@@ -76,7 +76,8 @@ The conductor is the main entry point. For a typical request it:
 
 Cortex remains useful with only the conductor. A larger fleet is optional:
 read-only nodes can inspect or compute, workers can perform scoped changes, and
-the watch agent can monitor unattended work or messaging channels.
+the watch agent can monitor unattended work or messaging channels. Framework
+workers are available for auditing and advancing the framework itself. 
 
 The workspace separates four kinds of context:
 
