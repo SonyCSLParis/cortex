@@ -144,6 +144,21 @@ It does **not** require you to configure every optional subsystem up front.
 A fresh clone can start cleanly without Signal, Telegram, watch, backup, or
 public-sync setup.
 
+On the first chat, Cortex asks about the first project before optional setup.
+It asks follow-up questions only for capabilities you want to enable: shared
+multi-machine operation, backups, Signal/Telegram, public export, or standing
+workers. The private `environments/<env>/settings.env` file is the durable
+home for optional runtime choices such as conductor/agent provider defaults,
+backup retention, relay hosts, and a public export remote. Keep credentials in
+`agents/conductor/secrets/`, never in that settings file.
+
+Safe defaults are disclosed during that chat: nothing unattended starts by
+itself; the conductor defaults to Codex and general agents to Claude unless
+configured otherwise; provider permission behavior remains unchanged unless
+overridden; and the initial backup manifest covers only the Cortex worktree.
+Public release is always a sanitized export via `scripts/sync_public.sh`, never
+a push of the live operational branch.
+
 If required local state is missing and you are in an interactive shell,
 `bash cortex.sh` will offer the same bootstrap flow automatically. Use
 `--no-init` if you want to suppress that behavior.
@@ -405,7 +420,7 @@ These are the workers that keep the system tidy and durable over time.
 
 ### Framework review workers
 
-These workers are analysis-first by default: they inspect one framework/runtime slice, report findings, and repair only on explicit COMMAND.
+These workers are analysis-first by default: they inspect one framework/runtime slice, report findings, and repair only on explicit COMMAND. They audit and improve Cortex itself by turning otherwise stochastic agent behavior into inspectable evidence, durable findings, and explicit follow-up rules or repairs. They cannot make an LLM deterministic, but they make the surrounding framework as repeatable and accountable as practical.
 
 | Worker | Lifecycle | Default cadence | Writes | Domain |
 | --- | --- | --- | --- | --- |

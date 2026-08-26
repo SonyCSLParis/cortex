@@ -20,7 +20,13 @@ CATEGORY_INFO = {
     },
     "framework": {
         "title": "Framework review workers",
-        "description": "These workers are analysis-first by default: they inspect one framework/runtime slice, report findings, and repair only on explicit COMMAND.",
+        "description": (
+            "These workers are analysis-first by default: they inspect one framework/runtime slice, "
+            "report findings, and repair only on explicit COMMAND. They audit and improve Cortex "
+            "itself by turning otherwise stochastic agent behavior into inspectable evidence, durable "
+            "findings, and explicit follow-up rules or repairs. They cannot make an LLM deterministic, "
+            "but they make the surrounding framework as repeatable and accountable as practical."
+        ),
     },
     "loop": {
         "title": "Closed-loop implementation workers",

@@ -16,11 +16,12 @@ conductor's attention.
   disappeared; a `wandb` run folder stopped updating; recent log lines
   contain `nan`, `Traceback`, `CUDA error`, `OOM`, `RuntimeError`, or
   a loss value that is diverging / stalled
-- **Disk/IO**: any mounted path ≥90% used; a data path unexpectedly
-  unmounted or empty; inode pressure. Prefer alerting when the pressured
-  mount is actually used for current local writes (logs, checkpoints,
-  temp files, new launches) or when there is a concrete write failure;
-  NAS-backed / symlink-heavy experiment storage lowers urgency.
+- **Disk/IO**: any mounted path at or above the configured disk-alert
+  threshold supplied with the snapshot; a data path unexpectedly unmounted
+  or empty; inode pressure. Prefer alerting when the pressured mount is
+  actually used for current local writes (logs, checkpoints, temp files,
+  new launches) or when there is a concrete write failure; NAS-backed /
+  symlink-heavy experiment storage lowers urgency.
 - **Process health**: unfamiliar processes under the current Unix user;
   configured agent sessions that were running and are now gone; zombies.
   Missing processes are mainly worth flagging when they correspond to

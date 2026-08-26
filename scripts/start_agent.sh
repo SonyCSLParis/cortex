@@ -105,7 +105,7 @@ Options:
                      than one node on the same server. Must match
                      [A-Za-z0-9._-]+.
   --provider VALUE   Agent CLI to run for inbox commands and broadcasts.
-                     Default: claude
+                     Default: CORTEX_AGENT_PROVIDER when set, otherwise claude
   --once             Exit after successfully processing one personal inbox
                      COMMAND. Useful for one-shot worker launches.
 Env:
@@ -121,6 +121,9 @@ Env:
                      Default: medium
   FALLBACK_PROVIDER  Optional fallback CLI (`claude` or `codex`) when the
                      primary provider is cooling down or fails.
+  CORTEX_AGENT_PROVIDER
+                     Persistent default provider for nodes and workers. An
+                     explicit --provider still wins. Default: claude.
   PROVIDER_FAILURE_COOLDOWN_SECONDS
                      Cooldown applied after quota/auth failures before retrying
                      the same provider. Default:
@@ -262,8 +265,9 @@ POLL_INTERVAL=10
 # env if a specific fleet legitimately needs longer runs.
 COMMAND_TIMEOUT="${COMMAND_TIMEOUT:-${DEFAULT_COMMAND_TIMEOUT_SECONDS}}"     # per COMMAND/BROADCAST
 SELFCHECK_TIMEOUT="${SELFCHECK_TIMEOUT:-${DEFAULT_SELFCHECK_TIMEOUT_SECONDS}}"  # per self-check
-AGENT_PROVIDER="claude"
+AGENT_PROVIDER="${CORTEX_AGENT_PROVIDER:-claude}"
 AGENT_PROVIDER_EXPLICIT=0
+[[ -n "${CORTEX_AGENT_PROVIDER:-}" ]] && AGENT_PROVIDER_EXPLICIT=1
 AGENT_CLI="claude"
 CLAUDE_EFFORT_EXPLICIT=0
 [[ -n "${CLAUDE_EFFORT+x}" ]] && CLAUDE_EFFORT_EXPLICIT=1
@@ -1621,8 +1625,8 @@ run_self_check() {
     prev_body=""
     [[ -f "${SELFCHECK_PREVIOUS}" ]] && prev_body="$(cat "${SELFCHECK_PREVIOUS}")"
 
-    prompt="$(printf '%s\n\n---\nAGENT_ID: %s\nAGENT_PROVIDER: %s\n\nCURRENT SNAPSHOT:\n%s\n\nPREVIOUS SNAPSHOT (for diff; may be empty on first run):\n%s\n' \
-        "${instruct_body}" "${AGENT_ID}" "${AGENT_PROVIDER}" "${snapshot_body}" "${prev_body}")"
+    prompt="$(printf '%s\n\n---\nAGENT_ID: %s\nAGENT_PROVIDER: %s\nDISK_ALERT_THRESHOLD: %s%%\n\nCURRENT SNAPSHOT:\n%s\n\nPREVIOUS SNAPSHOT (for diff; may be empty on first run):\n%s\n' \
+        "${instruct_body}" "${AGENT_ID}" "${AGENT_PROVIDER}" "${CORTEX_DEFAULT_SELFCHECK_DISK_ALERT_PERCENT}" "${snapshot_body}" "${prev_body}")"
 
     log "self-check: invoking provider (snapshot=$(wc -c < "${SELFCHECK_SNAPSHOT}") bytes, timeout=${SELFCHECK_TIMEOUT}s)"
     record_prompt_context_snapshot "selfcheck" "${prompt}" || true

@@ -68,7 +68,7 @@ evidence.
    higher-leverage language. Use ~3500 lines for
    `scripts/start_agent.sh` as a first soft cap.
 5. **Worker-count justification.** Audit every persistent worker.
-   For each, check the last 7-14 days of its `agents/{id}/log.md`
+   For each, check the last `CORTEX_DEFAULT_SIMPLIFY_EVIDENCE_DAYS` days of its `agents/{id}/log.md`
    and `agents/{id}/logbook.md`: did it produce findings the
    conductor acted on, or just noise? Propose consolidation or
    removal of workers whose findings could be absorbed by another
@@ -102,7 +102,7 @@ sources to sample, in rough priority order:
   what is *not* checked there that should be.
 - `users/{user}/usage/usage.tsv` and `python3
   scripts/usage_report.py` — cost trajectory.
-- A 7-14 day window of each worker's `agents/{id}/log.md` and
+- A `CORTEX_DEFAULT_SIMPLIFY_EVIDENCE_DAYS`-day window of each worker's `agents/{id}/log.md` and
   `agents/{id}/logbook.md` — actual output vs claimed mandate.
 
 Read enough to ground each ticket in concrete evidence. Do not

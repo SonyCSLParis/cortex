@@ -361,11 +361,18 @@ EOF
 
     cortex_bootstrap_write_if_missing "${env_dir}/settings.env" <<'EOF'
 # Local environment runtime overrides.
-# Uncomment and set values when this checkout uses these optional services.
+# Uncomment and set values when this checkout needs a different default or an
+# optional service. Keep credentials in agents/conductor/secrets/, not here.
 #
+# CORTEX_CONDUCTOR_PROVIDER=codex
+# CORTEX_AGENT_PROVIDER=claude
+# CORTEX_CONDUCTOR_PERMISSION_MODE=default
 # CORTEX_DEFAULT_BACKUP_ROOT="${CORTEX_DEFAULT_ROOT}/backups"
+# BACKUP_KEEP=7
 # SIGNAL_RELAY_HOST=
 # TELEGRAM_RELAY_HOST=
+# CORTEX_DEFAULT_PUBLIC_REMOTE_URL=
+# CORTEX_DEFAULT_PUBLIC_BRANCH=main
 EOF
 
     cortex_bootstrap_write_if_missing "${env_dir}/backup_targets.txt" <<'EOF'

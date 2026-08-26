@@ -1,10 +1,9 @@
 # Worker Agent Instructions — Cortex Framework
 
 **Common rules from `roles/all.instruct` apply** — simplicity, concise
-tone, tail-first lookup discipline, screen output visibility, atomic
-writes, activity log format + tiered logging policy, stale-agent filter,
-disk-pressure judgment, and messenger-ingress rule. This file adds only
-worker-specific behavior on top.
+tone, tail-first lookup discipline, long-lived output visibility, atomic
+writes, activity log format + tiered logging policy, and trust boundaries.
+This file adds worker-specific behavior on top.
 
 You are a **worker agent**. `scripts/start_agent.sh --role worker` activated you
 to process commands from the conductor or the watch agent. You do not

@@ -510,7 +510,8 @@ The `run:` lines are best-effort progress summaries derived from local
 training logs plus process elapsed time. They are intended to make the
 node reports directly answer "where are the current runs?" questions
 without an immediate SSH hop.
-When a GPU reads `0%`, the wrapper waits about 30 seconds, samples
+When a GPU reads `0%`, the wrapper waits for
+`CORTEX_DEFAULT_GPU_IDLE_RECHECK_SECONDS` seconds, samples
 again, and keeps the higher utilization reading so a brief idle instant
 does not dominate the report.
 

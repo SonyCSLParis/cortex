@@ -50,6 +50,7 @@ acting if something durable and non-obvious was learned.
 - [Conductor on-demand status overview](#conductor-on-demand-status-overview)
 - [Queueing a commit-worker COMMAND](#queueing-a-commit-worker-command)
 - [Draining the conductor inbox](#draining-the-conductor-inbox)
+- [Conductor bookkeeping](#conductor-bookkeeping)
 
 ---
 
@@ -633,8 +634,8 @@ follow.
 ### Handling large project files in git
 
 - **When**: deciding whether a bigger project file should be committed or kept out of normal git history.
-- **Shortcut**: default `yes` for text-like, diff-friendly files up to about `5 MB`, including logs, logbooks, message files, `*.csv`, configs, summaries, and similar files that are natural to git. Always track and commit `*.msg`, `*.py`, and `*.txt` files inside the repo, including untracked ones, unless they are secret-bearing, active live coordination files, or inside an explicitly excluded artifact tree. Always commit Cortex durable memory such as `agents/conductor/{tasks,log,logbook}.md`, `users/*/{tasks,ideas}.md`, `projects/*/logbook*.md`, and agent `log.md` / `logbook.md` memory files. Default `no` for binaries/media and artifact-style files such as checkpoints, model weights, images, PDFs, audio/video, tarballs, zips, and exported bundles. Also keep clearly ephemeral coordination files (`*.lock`, heartbeats, live status files, sockets, PID files, caches) out even though they may be text.
-- **Why / gotcha**: this repo still should not become an artifact mirror. The `5 MB` rule is a default-yes threshold for git-friendly text, not a license to add binary churn. The `backup` worker remains the fallback for larger live trees and bulky generated outputs.
+- **Shortcut**: default `yes` for text-like, diff-friendly files up to `CORTEX_DEFAULT_GIT_TEXT_MAX_BYTES`, including logs, logbooks, message files, `*.csv`, configs, summaries, and similar files that are natural to git. Always track and commit `*.msg`, `*.py`, and `*.txt` files inside the repo, including untracked ones, unless they are secret-bearing, active live coordination files, or inside an explicitly excluded artifact tree. Always commit Cortex durable memory such as `agents/conductor/{tasks,log,logbook}.md`, `users/*/{tasks,ideas}.md`, `projects/*/logbook*.md`, and agent `log.md` / `logbook.md` memory files. Default `no` for binaries/media and artifact-style files such as checkpoints, model weights, images, PDFs, audio/video, tarballs, zips, and exported bundles. Also keep clearly ephemeral coordination files (`*.lock`, heartbeats, live status files, sockets, PID files, caches) out even though they may be text.
+- **Why / gotcha**: this threshold is a default-yes limit for git-friendly text, not a license to add binary churn. The `backup` worker remains the fallback for larger live trees and bulky generated outputs.
 - **Last verified**: 2026-04-25.
 
 ### Archiving retired task rows from a task board
@@ -653,7 +654,7 @@ follow.
 ### Promoting generalized user rules into Cortex specs
 
 - **When**: the user gives a generalized operating rule or lasting preference rather than a one-off correction, for example commentary cadence, logging behavior, or how a whole class of tasks should be handled.
-- **Shortcut**: apply the rule immediately, patch the governing spec in the same session (`roles/*.instruct`, root `user.instruct`, `users/{user}/{user}.instruct`, `PROTOCOL.md`, `README.md`, `projects/{project}/{project}.instruct`, or another source-of-truth file as appropriate), then do the matching Cortex bookkeeping (`agents/conductor/tasks.md`, `agents/conductor/log.md`, `projects/cortex/logbook.md`) and commit. User-wide durable preferences belong in `users/{user}/{user}.instruct`; root `user.instruct` is only the default-user routing note. Project-specific rules belong in the owning project's `.instruct` file instead of the generic role specs. If the new rule is about inbox triage or agent reporting, encode the concrete `tasks.md` + user-surfacing behavior directly in `roles/conductor.instruct` rather than leaving it implicit. If the new rule fixes how an append-style file should be maintained, also correct any already-misordered live entry in that same session.
+- **Shortcut**: apply the rule immediately, patch the governing spec in the same session (`roles/*.instruct`, root `user.instruct`, `users/{user}/{user}.instruct`, `PROTOCOL.md`, `README.md`, `projects/{project}/{project}.instruct`, or another source-of-truth file as appropriate), then update the owning task/logbook surface at the appropriate scope and commit. User-wide durable preferences belong in `users/{user}/{user}.instruct`; root `user.instruct` is only the default-user routing note. Project-specific rules belong in the owning project's `.instruct` file instead of the generic role specs. If the new rule is about inbox triage or agent reporting, encode the concrete `tasks.md` + user-surfacing behavior directly in `roles/conductor.instruct` rather than leaving it implicit. If the new rule fixes how an append-style file should be maintained, also correct any already-misordered live entry in that same session.
 - **Why / gotcha**: if the rule lives only in chat, it will be lost on the next session. The durable spec edit is the real action; the bookkeeping just makes it discoverable later. Project-owned rules should stay close to the project rather than accreting inside `roles/conductor.instruct`. For inbox/reporting rules, vague wording is not enough; spell out when the conductor must create/update a task item and when the user must be told. If the rule changes a shared runtime convention such as where agent state lives, patch the launcher/runtime code, the protocol/docs (`PROTOCOL.md`, `README.md`), and any helper/allow-list files that encode that path (`scripts/control_plane_smoke.sh`, commit-worker scope rules, backup/sync helpers if applicable) in the same session. For logs and logbooks, "append-only" means chronological top-down: old at top, new at bottom.
 - **Last verified**: 2026-04-25.
 
@@ -766,3 +767,29 @@ follow.
   4. To check whether a specific queued command is done, grep the inbox for `REF: <msg_id>` and inspect the agent's status file.
 - **Why / gotcha**: periodic efficiency reports, worker clarification requests, failure reports, and substantive status findings are the most common non-trivial categories — do not bury them in archive-only handling. During active chat, report in chat; do not duplicate via Signal unless asked. Outgoing Signal is conductor-restricted to (a) explicit user requests in chat and (b) `tasks.md` delayed messages whose due date has arrived.
 - **Last verified**: 2026-05-30.
+
+### Conductor bookkeeping
+
+- **When**: creating, updating, or closing standard/heavy work, or recording
+  a durable result.
+- **Shortcut**:
+  - Place cross-project/fleet work in `agents/conductor/tasks.md`, user
+    reminders in `users/{user}/tasks.md`, and project-owned work in
+    `projects/{project}/tasks.md`.
+  - Use `- [status] TASK_ID | owner | priority | summary | latest_msg | notes`
+    with `TYYYYMMDD-XX` identifiers. Set `doing` only while an executor or
+    fresh evidence exists; otherwise use `open`, `blocked`, or `cancelled`.
+    Keep notes as an operational pointer, not a journal.
+  - A tracked COMMAND includes `TASK_ID`, sets the owning row to `doing` with
+    its `MSG_ID`, and maps its RESPONSE through `TASK_ID` / `REF`.
+  - Every project task gets a project-logbook entry plus a one-line conductor
+    log pointer. The central conductor logbook is only for cross-project or
+    project-agnostic results-bearing technical work; routine coordination
+    stays in `log.md`.
+  - Logbook entries use `## [ISO_TIMESTAMP] — topic {#tag}` and terse bullets.
+    Reuse a thread tag; include numeric results in the same form shown to the
+    user. `compressor` owns rotation and summaries.
+- **Why / gotcha**: task state is current operational truth, while logbooks
+  preserve conclusions and numeric results. Do not leave stale work as
+  `doing`, or duplicate a project result in the central logbook.
+- **Last verified**: 2026-08-26.

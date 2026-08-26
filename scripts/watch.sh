@@ -327,9 +327,6 @@ watch_logbook_worthy() {
     if [[ "${combined}" =~ (no[[:space:]-]+live[[:space:]-]+targets|nothing[[:space:]-]+to[[:space:]-]+enforce|already[[:space:]-]+killed_on_rollover|already[[:space:]-]+terminated|screen_gone) ]]; then
         return 1
     fi
-    (( WATCH_CONDUCTOR_DIRECTIVE_COUNT > 0 )) && return 0
-    (( WATCH_SIGNAL_INBOUND_COUNT > 0 )) && return 0
-    [[ "${signal_status}" != "none" ]] && return 0
     if [[ "${combined}" =~ (refill|relaunch|launched|started|stopped|killed|deleted|removed|restarted|one-off|fired|archived|compacted|repaired|rewrote|updated[[:space:]]watch\\.txt|sent[[:space:]]signal|replied[[:space:]]to) ]]; then
         return 0
     fi

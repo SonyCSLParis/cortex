@@ -255,7 +255,7 @@ mv ~/cortex/agents/conductor/inbox/*.msg ~/cortex/agents/conductor/archive/ 2>/d
 
 ## Add a Signal or Telegram auto-reply rule for an external sender
 
-Use the structured reply rule exactly as defined in `roles/all.instruct`.
+Use the structured reply rule exactly as defined in `roles/watch.instruct`.
 No extra prose override line is required.
 
 For Signal:

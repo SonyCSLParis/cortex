@@ -16,9 +16,8 @@ per-user instruct file named there (for example
 `users/<name>/<name>.instruct`) if it exists.**
 `all.instruct`
 holds the rules every Cortex agent follows (simplicity, tone, lookup
-discipline, framework/user/environment/project separation, screen
-output, atomic writes, `agents/conductor/log.md` format, stale-agent
-filter, disk-pressure judgment, messenger-ingress rule). `conductor.instruct`
+discipline, framework/user/environment/project separation, long-lived output,
+atomic writes, activity-log format, and trust boundaries). `conductor.instruct`
 is your role-specific operating manual — responsibilities,
 session-start routine, workflow patterns, bash snippets,
 `agents/conductor/tasks.md` / `agents/conductor/logbook.md` /

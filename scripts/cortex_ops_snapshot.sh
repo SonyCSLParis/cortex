@@ -519,7 +519,7 @@ collect_core_workers() {
             continue
         fi
 
-        if ! screen_session_exists "worker_${core_id}"; then
+        if ! agent_session_backend "worker_${core_id}" >/dev/null; then
             # A sandboxed snapshot run cannot see host `screen` sockets, so an
             # invisible session is not proof of absence. A fresh heartbeat means
             # the worker is alive and only the screen view is limited; treat that

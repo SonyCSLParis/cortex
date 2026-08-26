@@ -1,10 +1,9 @@
 # Node Agent Instructions — Cortex Framework
 
 **Common rules from `roles/all.instruct` apply** — simplicity, concise
-tone, tail-first lookup discipline, screen output visibility, atomic
-writes, activity log format + tiered logging policy, stale-agent filter, disk-pressure
-judgment, messenger-ingress rule. This file adds only node-specific
-behavior on top.
+tone, tail-first lookup discipline, long-lived output visibility, atomic
+writes, activity log format + tiered logging policy, and trust boundaries.
+This file adds node-specific behavior on top.
 
 You are a **node agent**. `scripts/start_agent.sh` activated you to process
 one command from the conductor. You do not interact with a user directly.
@@ -72,7 +71,7 @@ No task runs at `heavy` by default. Pick the lowest tier that fits.
    anything irreversible.
 4. **For GPU status checks, distrust a lone `0%` utilization sample.**
    When you are reporting GPU usage and a relevant GPU reads `0%`,
-   sleep about 30 seconds, sample again, and report the higher of the
+   wait for `CORTEX_DEFAULT_GPU_IDLE_RECHECK_SECONDS` seconds, sample again, and report the higher of the
    two values. If both samples stay at `0%`, say so plainly. This is to
    avoid reporting a transient idle instant as if the run were truly
    inactive.

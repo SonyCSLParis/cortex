@@ -25,15 +25,41 @@ Then give a very short "what you can do next" list:
 - start the operational worker agents, especially `backup`, `commit`, and
   `compressor`
 
-Ask for only the setup details that would materially help customize the
-checkout. Good first questions are:
+Use progressive setup rather than a static questionnaire. Ask for the first
+project name and work type first. Then ask only the optional questions that
+materially affect the checkout the user intends to run:
 
-- what the first project should be called and what kind of work it will hold
-- whether this is a single-machine or multi-machine/NAS-backed setup
-- which provider CLI should be the normal chat and worker default
-- whether Signal, Telegram, both, or neither should be configured
-- where source backups should be written
-- whether the user wants the operational workers started now
+- Ask whether the setup is single-machine or multi-machine/NAS-backed. If it
+  is multi-machine, capture the shared-checkout layout and SSH/host facts in
+  the private environment layer before launching remote agents.
+- Ask whether backups should be configured now or later. If now, ask for the
+  snapshot destination, additional source coverage, and retention; store
+  runtime overrides in `environments/{env}/settings.env` and coverage in its
+  backup manifest.
+- Ask whether Signal, Telegram, both, or neither should be configured. If a
+  channel is enabled, collect its relay and credential details only then; keep
+  credentials in the private secrets directory, not in `settings.env`.
+- Ask whether the user intends to publish the framework. If yes, collect the
+  public remote URL and branch in the private environment settings, and explain
+  that publication uses the sanitized export workflow rather than pushing the
+  live operational branch.
+- Ask whether the operational workers should be started now. Explain their
+  scopes before starting them: backup writes snapshots, commit packages only
+  its allowed bookkeeping, and compressor rotates durable history.
 
-Do not require all answers up front. If the user gives only a first project
-name, create the project scaffolding and leave optional integrations for later.
+After the relevant choices, state the effective defaults briefly:
+
+- no workers, watch process, messaging daemon, or public export starts
+  automatically
+- the conductor uses `CORTEX_CONDUCTOR_PROVIDER` when set (otherwise Codex),
+  and nodes/workers use `CORTEX_AGENT_PROVIDER` when set (otherwise Claude)
+- provider permission behavior remains unchanged unless
+  `CORTEX_CONDUCTOR_PERMISSION_MODE` is set or a launch flag overrides it
+- backups initially cover the Cortex worktree and use the configured backup
+  root with `BACKUP_KEEP` retention
+- long-lived agents run in the configured session backend, normally screen
+
+Do not require any optional answer up front. If the user gives only a first
+project name, create the project scaffolding and leave optional integrations
+for later. Point the user to `environments/{env}/settings.env` as the durable
+home for the disclosed defaults and optional runtime configuration.
