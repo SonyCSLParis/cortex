@@ -127,16 +127,16 @@ Commonly useful:
 
 ### Recommended first run
 
-Clone the repo, initialize local private state, then start the conductor:
+Clone the repo, then start the conductor:
 
 ```bash
 git clone <repo-url> cortex
 cd cortex
-bash cortex.sh --init
 bash cortex.sh
 ```
 
-`--init` creates the local surfaces a real checkout needs, including:
+On its first start, Cortex creates the local surfaces a real checkout needs,
+including:
 
 - `user.instruct` and `environment.instruct`
 - `users/<user>/...`
@@ -278,6 +278,12 @@ Start a node agent on the current machine:
 ```bash
 bash scripts/start_agent_screen.sh --role node --provider codex
 ```
+
+Node agents on several servers can share one Cortex checkout. On every node
+host, create a symlink to the same central Cortex directory (for example, on
+shared storage reachable from every server) so the agents use one shared
+control plane. The conductor must be able to SSH to each node host; keep the
+actual host and access details in `environments/{env}/cheat_sheet.md`.
 
 Start a named worker:
 
