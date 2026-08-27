@@ -16,9 +16,9 @@ Cortex framework in one short paragraph. Keep it concrete: Cortex can organize
 work into projects, keep durable task/logbook context, coordinate local or
 remote agents, and run optional unattended workers.
 
-Then give a very short "what you can do next" list:
+Then output exactly this "what you can do next" list:
 
-- create the first project under `projects/<project>/`
+- create the first, empty project (just give the conductor a project name)
 - bring an existing codebase, notes, or data into the first project
 - add a private environment profile for remote hosts, storage, or credentials
 - configure backups/repositories before the project accumulates important work
