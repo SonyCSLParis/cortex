@@ -164,6 +164,13 @@ overridden; and the initial backup manifest covers only the Cortex worktree.
 Public release is always a sanitized export via `scripts/sync_public.sh`, never
 a push of the live operational branch.
 
+Codex is under constant development and the behavior of agents (in particular
+the Conductor agent) can be easily customized. The framework was built with
+the Conductor agent and can further be modified and extended by prompting the
+Conductor. Work on the Cortex framework automatically gets its own project
+folder and will be treated like any other project (e.g., logfiles and shortcuts
+will automatically be maintained by the Conductor).
+
 If required local state is missing and you are in an interactive shell,
 `bash cortex.sh` will offer the same bootstrap flow automatically. Use
 `--no-init` if you want to suppress that behavior.
@@ -175,7 +182,13 @@ You can begin with ordinary requests such as:
 
 > Create a project for my new experiment and help me turn the idea into a plan.
 
+> Before we ran the experiment with the dummy dataset, now plug in the actual
+> dataset and start three runs, with the three different architectures we
+> designed before. You can use any free GPUs you can find on our servers.
+
 > What did we conclude the last time we worked on this project?
+
+> My experiments should meanwhile be finished, can you show me the results?
 
 > Inspect the current implementation, make the change, run the relevant tests,
 > and record the durable outcome.
