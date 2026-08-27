@@ -27,8 +27,7 @@ discuss an idea, or request work in natural language. The conductor keeps the
 relevant project files, tasks, results, and durable memories organized and can
 delegate bounded work when another agent is useful.
 
-Agent SDKs help developers build agent applications. Cortex instead helps a
-person organize and operate their own ongoing work with agents.
+Cortex helps a person organize and operate their own ongoing work with agents.
 
 ## Why Cortex
 
