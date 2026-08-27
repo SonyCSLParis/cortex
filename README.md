@@ -199,8 +199,9 @@ belong in the private environment layer, not in framework files.
 
 ## Provider and Session Options
 
-By default, `cortex.sh` starts a fresh conductor session with Codex. You can
-override that explicitly:
+By default, `cortex.sh` starts a fresh conductor session with Codex and keeps
+the launcher view in normal terminal scrollback (`--no-alt-screen`). You can
+override the provider explicitly:
 
 ```bash
 bash cortex.sh --provider codex
@@ -271,7 +272,8 @@ patching those boundaries rather than treating Cortex as tied to one vendor.
 
 If another conductor window is already active, `cortex.sh` warns at startup and
 prints an exhaustive color-coded agent roster before the operator snapshot;
-the operator snapshot also shows the active session count. The top-level
+the operator view also reports new public-remote commits not represented in
+local `master`. The operator snapshot also shows the active session count. The top-level
 `agents/conductor/{info,status,heartbeat}` files are now aggregate views derived
 from the live per-session runtime files.
 

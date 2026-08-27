@@ -55,6 +55,7 @@ CLAUDE_EFFORT="${CLAUDE_EFFORT:-low}"
 CODEX_REASONING_EFFORT_EXPLICIT=0
 [[ -n "${CODEX_REASONING_EFFORT+x}" ]] && CODEX_REASONING_EFFORT_EXPLICIT=1
 CODEX_REASONING_EFFORT="${CODEX_REASONING_EFFORT:-medium}"
+NO_ALT_SCREEN=0
 RESUME_LAST=0
 INIT_ONLY=0
 BOOTSTRAP_USER=""
@@ -116,6 +117,8 @@ Provider and model selection:
   --permission-default
                     Compatibility shorthand for --permission default; can
                     override CORTEX_CONDUCTOR_PERMISSION_MODE.
+  --no-alt-screen   Codex only: explicit compatibility flag; Codex launches
+                    already run inline and preserve terminal scrollback.
 
 First-run setup:
   --init            Create local user/environment/conductor state and exit.
@@ -145,6 +148,10 @@ EOF
             ;;
         --startup-checks)
             STARTUP_CHECKS=1
+            shift
+            ;;
+        --no-alt-screen)
+            NO_ALT_SCREEN=1
             shift
             ;;
         --provider)
@@ -732,6 +739,17 @@ case "${PROVIDER}" in
         ;;
 esac
 
+if (( NO_ALT_SCREEN )) && [[ "${PROVIDER}" != "codex" ]]; then
+    echo "--no-alt-screen is supported only with the Codex provider." >&2
+    exit 2
+fi
+
+# Codex's alternate screen hides the launcher status view. Keep that view in
+# ordinary terminal scrollback for every Codex conductor session.
+if [[ "${PROVIDER}" == "codex" ]]; then
+    NO_ALT_SCREEN=1
+fi
+
 if [[ -n "${CONDUCTOR_TIER}" ]]; then
     CONDUCTOR_TIER="$(normalize_conductor_tier "${CONDUCTOR_TIER}")" || {
         echo "Unknown --tier '${CONDUCTOR_TIER}' (expected weak|medium|strong, aliases low|high)." >&2
@@ -1118,6 +1136,10 @@ if [[ -x "${CORTEX_DIR}/scripts/cortex_ops_snapshot.sh" ]]; then
 else
     echo -e "  ${RED}missing scripts/cortex_ops_snapshot.sh${RESET}"
 fi
+if [[ -x "${CORTEX_DIR}/scripts/public_commit_notice.sh" ]]; then
+    public_commit_notice_output="$(bash "${CORTEX_DIR}/scripts/public_commit_notice.sh" 2>&1 || true)"
+    [[ -z "${public_commit_notice_output}" ]] || printf '%s\n' "${public_commit_notice_output}"
+fi
 
 echo
 printf 'Conductor session: %s' "${CONDUCTOR_SESSION_ID}"
@@ -1151,6 +1173,9 @@ case "${PROVIDER}" in
         fi
         ;;
     codex)
+        if (( NO_ALT_SCREEN )); then
+            LAUNCH_ARGS[${#LAUNCH_ARGS[@]}]="--no-alt-screen"
+        fi
         if [[ -n "${CONDUCTOR_TIER}" || "${CODEX_REASONING_EFFORT_EXPLICIT}" -eq 1 ]]; then
             LAUNCH_ARGS[${#LAUNCH_ARGS[@]}]="-c"
             LAUNCH_ARGS[${#LAUNCH_ARGS[@]}]="model_reasoning_effort=\"${CODEX_REASONING_EFFORT}\""

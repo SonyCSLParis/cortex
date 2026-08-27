@@ -1579,6 +1579,56 @@ git merge-base --is-ancestor "${public_head}" "\${integrated_head}"
 EOF
 }
 
+test_public_commit_notice() {
+    local private_repo public_remote public_work output source_head
+
+    private_repo="${TMP_ROOT}/public-notice-private"
+    public_remote="${TMP_ROOT}/public-notice.git"
+    public_work="${TMP_ROOT}/public-notice-work"
+    git init -q "${private_repo}"
+    git -C "${private_repo}" config user.name test
+    git -C "${private_repo}" config user.email test@example.invalid
+    printf 'source\n' > "${private_repo}/README.md"
+    git -C "${private_repo}" add README.md
+    git -C "${private_repo}" commit -q -m 'private source'
+    git init -q --bare "${public_remote}"
+    git -C "${private_repo}" remote add cortex "${public_remote}"
+    git -C "${private_repo}" push -q cortex master:main
+    git clone -q "${public_remote}" "${public_work}"
+    git -C "${public_work}" checkout -q main
+    git -C "${public_work}" config user.name test
+    git -C "${public_work}" config user.email test@example.invalid
+
+    printf 'public update\n' >> "${public_work}/README.md"
+    git -C "${public_work}" commit -qam 'public documentation update'
+    git -C "${public_work}" push -q origin main
+
+    output="$(CORTEX_DIR="${CORTEX_DIR}" CORTEX_PUBLIC_COMMIT_NOTICE_REPO="${private_repo}" CORTEX_DEFAULT_ENV_SETTINGS_FILE=/nonexistent CORTEX_DEFAULT_PUBLIC_REMOTE_URL="${public_remote}" \
+        CORTEX_DEFAULT_PUBLIC_BRANCH=main bash "${CORTEX_DIR}/scripts/public_commit_notice.sh")"
+    printf '%s\n' "${output}" | sed $'s/\\033\\[[0-9;]*m//g' | grep -Fq 'UPDATE AVAILABLE: 1 new public commit on cortex/main not represented in master. Ask Conductor to pull from public!' \
+        || fail "public commit notice did not report the direct public commit: ${output}"
+    printf '%s\n' "${output}" | sed $'s/\\033\\[[0-9;]*m//g' | grep -Fq 'public documentation update' \
+        || fail "public commit notice omitted the public commit subject"
+    [[ "${output}" == $'\n\033[1;33m'*$'\033[0m' ]] \
+        || fail "public commit notice should color the complete update: ${output}"
+
+    git -C "${private_repo}" merge -q --no-edit cortex/main
+    output="$(CORTEX_DIR="${CORTEX_DIR}" CORTEX_PUBLIC_COMMIT_NOTICE_REPO="${private_repo}" CORTEX_DEFAULT_ENV_SETTINGS_FILE=/nonexistent CORTEX_DEFAULT_PUBLIC_REMOTE_URL="${public_remote}" \
+        CORTEX_DEFAULT_PUBLIC_BRANCH=main bash "${CORTEX_DIR}/scripts/public_commit_notice.sh")"
+    [[ -z "${output}" ]] || fail "public commit notice should be quiet after integration"
+
+    printf 'source export\n' >> "${private_repo}/README.md"
+    git -C "${private_repo}" commit -qam 'private source update'
+    source_head="$(git -C "${private_repo}" rev-parse HEAD)"
+    git -C "${public_work}" pull -q --ff-only origin main
+    printf 'generated export\n' >> "${public_work}/README.md"
+    git -C "${public_work}" commit -qam "cortex: public framework export from master ${source_head}"
+    git -C "${public_work}" push -q origin main
+    output="$(CORTEX_DIR="${CORTEX_DIR}" CORTEX_PUBLIC_COMMIT_NOTICE_REPO="${private_repo}" CORTEX_DEFAULT_ENV_SETTINGS_FILE=/nonexistent CORTEX_DEFAULT_PUBLIC_REMOTE_URL="${public_remote}" \
+        CORTEX_DEFAULT_PUBLIC_BRANCH=main bash "${CORTEX_DIR}/scripts/public_commit_notice.sh")"
+    [[ -z "${output}" ]] || fail "public commit notice should suppress an accounted export"
+}
+
 test_research_timeout_portability() {
     grep -Fq 'run_with_timeout 4 env SSH_AUTH_SOCK="${sock}" ssh-add -l' "${CORTEX_DIR}/roles/research/research.sh" \
         || fail "research ssh-agent liveness check must use run_with_timeout"
@@ -1607,6 +1657,26 @@ test_conductor_startup_flag_polarity() {
         || fail "cortex.sh prompt polarity should branch on STARTUP_CHECKS"
     grep -Fq 'prompt="${prompt} At startup, perform the minimal startup routine."' "${CORTEX_DIR}/cortex.sh" \
         || fail "cortex.sh should default the prompt to minimal startup"
+}
+
+test_conductor_no_alt_screen_flag() {
+    local help_output
+
+    help_output="$(
+        bash "${CORTEX_DIR}/cortex.sh" --help
+    )"
+    printf '%s\n' "${help_output}" | grep -Fq -- '--no-alt-screen' \
+        || fail "cortex.sh --help missing --no-alt-screen"
+    grep -Fq 'if [[ "${PROVIDER}" == "codex" ]]; then' "${CORTEX_DIR}/cortex.sh" \
+        || fail "cortex.sh should default Codex launches to no-alt-screen"
+    grep -Fq 'NO_ALT_SCREEN=1' "${CORTEX_DIR}/cortex.sh" \
+        || fail "cortex.sh missing Codex no-alt-screen default"
+    grep -Fq -- '--no-alt-screen)' "${CORTEX_DIR}/cortex.sh" \
+        || fail "cortex.sh does not parse --no-alt-screen"
+    grep -Fq '"--no-alt-screen is supported only with the Codex provider."' "${CORTEX_DIR}/cortex.sh" \
+        || fail "cortex.sh should reject --no-alt-screen for Claude"
+    grep -Fq 'LAUNCH_ARGS[${#LAUNCH_ARGS[@]}]="--no-alt-screen"' "${CORTEX_DIR}/cortex.sh" \
+        || fail "cortex.sh does not forward --no-alt-screen to Codex"
 }
 
 test_conductor_model_aliases() {
@@ -1756,8 +1826,10 @@ run_step "ops snapshot messenger selfcheck fallback" test_ops_snapshot_messenger
 run_step "source guards for Linux branches" test_linux_source_guards
 run_step "public license exception scope" test_public_license_exception_scope
 run_step "public integrated-divergence guard" test_public_sync_integrated_divergence_guard
+run_step "public commit notice" test_public_commit_notice
 run_step "research timeout portability" test_research_timeout_portability
 run_step "conductor startup flag polarity" test_conductor_startup_flag_polarity
+run_step "conductor no-alt-screen flag" test_conductor_no_alt_screen_flag
 run_step "conductor current-model aliases" test_conductor_model_aliases
 run_step "local agent log paths" test_agent_logs_are_local
 run_step "launcher cleanup marks offline" test_start_agent_cleanup_marks_offline
