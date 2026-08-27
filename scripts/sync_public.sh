@@ -268,15 +268,63 @@ sync_export_tree() {
     cp -a "${export_tree}/." "${export_dir}/"
 }
 
+public_commit_subject() {
+    local export_dir="$1" path category categories="" count=0 first rest second
+
+    while IFS= read -r path; do
+        case "${path}" in
+            README.md|CONDUCTOR.md|PROTOCOL.md|SHORTCUTS.md|BASH_RECIPES.md|*.md|*.instruct)
+                category="documentation"
+                ;;
+            config/*)
+                category="configuration"
+                ;;
+            roles/*)
+                category="agent runtime"
+                ;;
+            scripts/*)
+                category="tooling"
+                ;;
+            templates/*)
+                category="templates"
+                ;;
+            *)
+                category="${path##*/}"
+                ;;
+        esac
+        case ",${categories}," in
+            *,"${category}",*) ;;
+            *)
+                if [[ -n "${categories}" ]]; then
+                    categories="${categories}, ${category}"
+                else
+                    categories="${category}"
+                fi
+                count=$((count + 1))
+                ;;
+        esac
+    done < <(git -C "${export_dir}" diff --cached --name-only)
+
+    if [[ "${count}" -gt 3 ]]; then
+        first="${categories%%, *}"
+        rest="${categories#*, }"
+        second="${rest%%, *}"
+        categories="${first}, ${second}, and other framework surfaces"
+    fi
+    printf 'cortex: update public %s\n' "${categories:-framework}"
+}
+
 commit_export() {
-    local export_dir="$1" export_sha="$2" export_branch="$3"
+    local export_dir="$1" export_sha="$2" export_branch="$3" subject
     git -C "${export_dir}" add -A
     if git -C "${export_dir}" diff --cached --quiet; then
         echo "Public export is already up to date with ${export_branch} ${export_sha}."
         return 1
     fi
+    subject="$(public_commit_subject "${export_dir}")"
+    printf 'Public export subject: %s\n' "${subject}"
     git -C "${export_dir}" commit -q \
-        -m "cortex: public framework export from ${export_branch} ${export_sha}" \
+        -m "${subject}" \
         -m "Source-Commit: ${export_sha}"
 }
 
