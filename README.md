@@ -50,6 +50,9 @@ Cortex helps a person organize and operate their own ongoing work with agents.
   lesson in the durable surface that owns it.
 - **Provider flexibility:** Cortex uses capable provider CLIs and their native
   sessions. Most of the workspace model is independent of any one LLM vendor.
+- **Customizability:** Cortex was implemented using the Conductor agent who knows
+  everything about the framework. If you want to know how things work, customize,
+  extend or fix a bug in the framework, just talk to the Conductor.
 
 ## How Cortex Works
 
