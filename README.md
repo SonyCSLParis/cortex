@@ -226,7 +226,9 @@ accepted aliases are:
 - `--provider codex  --model 5.4` → Codex `gpt-5.4`
 
 Anything else is rejected with the accepted-alias list. Omit `--model` to fall
-back to the provider's own default.
+back to the provider's own default. For onboarding another CLI model, just ask
+it to "Read the CONDUCTOR.md and follow it." and then ask it to extend the
+framework to that very model.
 
 To resume the most recent conductor chat with its existing model/context, use:
 
