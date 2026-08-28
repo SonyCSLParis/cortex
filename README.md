@@ -387,7 +387,9 @@ The conductor is the human-facing control plane.
 - launched with `bash cortex.sh`
 - owns cross-project operational bookkeeping
 - reads context and updates durable memory
-- sends bounded work to other agents
+- starts worker agents, like the commit or backup agent
+- reads agent reports (from it's inbox).
+- sends bounded work to other agents (only on explicit request)
 - receives and summarizes their responses
 
 If you use only one Cortex role, this is the one.
