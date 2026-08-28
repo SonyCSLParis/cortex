@@ -440,8 +440,8 @@ single chat with helper scripts.
 
 Cortex supports plain generic workers, but the framework also ships with
 specialized named worker roles. This catalog is reference material rather than
-a recommended default fleet. The roles are defined by
-`roles/<category>/worker.<name>.instruct` plus
+a recommended default fleet - only commit, backup and compressor are recommended.
+The roles are defined by `roles/<category>/worker.<name>.instruct` plus
 `roles/<category>/worker.<name>.meta`.
 If a new worker role should be created, just ask the Conductor to do so.
 
