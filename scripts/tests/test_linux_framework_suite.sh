@@ -1580,11 +1580,12 @@ EOF
 }
 
 test_public_commit_notice() {
-    local private_repo public_remote public_work output source_head
+    local private_repo public_remote public_work public_checkout output source_head
 
     private_repo="${TMP_ROOT}/public-notice-private"
     public_remote="${TMP_ROOT}/public-notice.git"
     public_work="${TMP_ROOT}/public-notice-work"
+    public_checkout="${TMP_ROOT}/public-notice-checkout"
     git init -q "${private_repo}"
     git -C "${private_repo}" config user.name test
     git -C "${private_repo}" config user.email test@example.invalid
@@ -1598,6 +1599,8 @@ test_public_commit_notice() {
     git -C "${public_work}" checkout -q main
     git -C "${public_work}" config user.name test
     git -C "${public_work}" config user.email test@example.invalid
+    git clone -q "${public_remote}" "${public_checkout}"
+    git -C "${public_checkout}" checkout -q main
 
     printf 'public update\n' >> "${public_work}/README.md"
     git -C "${public_work}" commit -qam 'public documentation update'
@@ -1611,6 +1614,11 @@ test_public_commit_notice() {
         || fail "public commit notice omitted the public commit subject"
     [[ "${output}" == $'\n\033[1;33m'*$'\033[0m' ]] \
         || fail "public commit notice should color the complete update: ${output}"
+
+    output="$(CORTEX_DIR="${CORTEX_DIR}" CORTEX_PUBLIC_COMMIT_NOTICE_REPO="${public_checkout}" CORTEX_DEFAULT_ENV_SETTINGS_FILE=/nonexistent \
+        CORTEX_DEFAULT_PUBLIC_BRANCH=main bash "${CORTEX_DIR}/scripts/public_commit_notice.sh")"
+    printf '%s\n' "${output}" | sed $'s/\\033\\[[0-9;]*m//g' | grep -Fq 'UPDATE AVAILABLE: 1 new public commit on origin/main not represented in main. Ask Conductor to pull from public!' \
+        || fail "public checkout notice did not fall back to origin/main: ${output}"
 
     git -C "${private_repo}" merge -q --no-edit cortex/main
     output="$(CORTEX_DIR="${CORTEX_DIR}" CORTEX_PUBLIC_COMMIT_NOTICE_REPO="${private_repo}" CORTEX_DEFAULT_ENV_SETTINGS_FILE=/nonexistent CORTEX_DEFAULT_PUBLIC_REMOTE_URL="${public_remote}" \

@@ -16,7 +16,7 @@ source "${CORTEX_DIR}/config/cortex_defaults.sh"
 source "${CORTEX_DIR}/scripts/public_sync_lib.sh"
 
 REPO_DIR="${CORTEX_PUBLIC_COMMIT_NOTICE_REPO:-${CORTEX_DIR}}"
-BASE_BRANCH="${CORTEX_PUBLIC_COMMIT_NOTICE_BASE_BRANCH:-master}"
+BASE_BRANCH="${CORTEX_PUBLIC_COMMIT_NOTICE_BASE_BRANCH:-}"
 TIMEOUT_SECONDS="${CORTEX_DEFAULT_PUBLIC_COMMIT_NOTICE_TIMEOUT_SECONDS}"
 MAX_COMMITS="${CORTEX_DEFAULT_PUBLIC_COMMIT_NOTICE_MAX_COMMITS}"
 
@@ -28,8 +28,30 @@ cd "${REPO_DIR}" 2>/dev/null || {
 [[ "${TIMEOUT_SECONDS}" =~ ^[0-9]+$ ]] || TIMEOUT_SECONDS=8
 [[ "${MAX_COMMITS}" =~ ^[1-9][0-9]*$ ]] || MAX_COMMITS=3
 
+current_branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
 remote="$(public_remote_name 2>/dev/null || true)"
-[[ -n "${remote}" ]] || exit 0
+public_checkout=0
+
+if [[ -z "${remote}" ]]; then
+    if [[ "${current_branch}" == "${CORTEX_DEFAULT_PUBLIC_BRANCH}" ]] \
+        && git remote get-url origin >/dev/null 2>&1; then
+        remote="origin"
+        public_checkout=1
+    else
+        exit 0
+    fi
+elif [[ "${current_branch}" == "${CORTEX_DEFAULT_PUBLIC_BRANCH}" ]]; then
+    tracking_remote="$(git config --get "branch.${current_branch}.remote" 2>/dev/null || true)"
+    [[ "${tracking_remote}" == "${remote}" ]] && public_checkout=1
+fi
+
+if [[ -z "${BASE_BRANCH}" ]]; then
+    if (( public_checkout )); then
+        BASE_BRANCH="${current_branch}"
+    else
+        BASE_BRANCH="master"
+    fi
+fi
 
 if ! git rev-parse --verify --quiet "refs/heads/${BASE_BRANCH}" >/dev/null; then
     printf 'PUBLIC UPDATE CHECK UNAVAILABLE: local %s branch is missing.\n' "${BASE_BRANCH}"
