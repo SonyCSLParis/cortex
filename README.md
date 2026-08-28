@@ -25,7 +25,8 @@ Cortex externalizes that context into structured work state that agents can
 selectively reload. You use the conductor like a normal chat: ask a question,
 discuss an idea, or request work in natural language. The conductor keeps the
 relevant project files, tasks, results, and durable memories organized and can
-delegate bounded work when another agent is useful.
+delegate bounded work when another agent is useful (currently only on user 
+request).
 
 Cortex helps a person organize and operate their own ongoing work with agents.
 
