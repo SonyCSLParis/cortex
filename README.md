@@ -350,14 +350,17 @@ framework commits or public-sync work.
 
 ## Example Workflows
 
-### Research
+### Research (e.g., Deep Learning)
 
-Give Cortex a hypothesis or ask it to investigate one. It can inspect prior
-project results, turn the idea into an experiment, delegate literature or
-implementation work, and monitor the run. Cortex keeps the relevant tasks,
-results, and conclusions organized automatically, so the next conversation can
-continue from the project record instead of reconstructing the research history
-from chat.
+Ask Cortex to implement and run and experiment. It can inspect prior
+results, turn the idea into an experiment, delegate literature or implementation
+work, and monitor the run (e.g., using the watch agent). Cortex stores all the 
+information about your server structure (in the environment folder) so that several
+experiments can be started on different servers with only one prompt.
+Cortex keeps the relevant tasks, results, and conclusions organized automatically, 
+so the next conversation can continue from the project record instead of reconstructing
+the research history from chats. Finally, ask Cortex to draft a paper with the results
+and findings.
 
 ### Engineering
 
@@ -368,8 +371,9 @@ and leave the code, task state, and durable rationale aligned.
 ### Long-running operations
 
 Use nodes and workers to inspect several machines, launch or monitor long jobs,
-and use watch to keep an eye on experiments and support messenger communication
-while you are away.
+and use the watch agent to keep an eye on experiments and support messenger
+communication while you are away. E.g., you can ask the watch agent to write you
+a Telegram message in case an experiment fails or there are any system anomalies.
 
 The exact actions available in each workflow depend on the permissions and
 filesystem or host access granted to the active agents.
