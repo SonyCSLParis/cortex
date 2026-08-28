@@ -5,6 +5,7 @@
 #
 # Usage:
 #   bash scripts/sync_public.sh --dry-run
+#   bash scripts/sync_public.sh --subject "cortex: describe the exported change"
 #   bash scripts/sync_public.sh --no-push
 #   bash scripts/sync_public.sh --list-files
 #   bash scripts/sync_public.sh
@@ -20,6 +21,7 @@ NO_PUSH=0
 KEEP_EXPORT=0
 LIST_FILES=0
 EXPORT_PARENT=""
+PUBLIC_COMMIT_SUBJECT=""
 
 usage() {
     sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
@@ -49,6 +51,11 @@ while [[ $# -gt 0 ]]; do
         --export-parent)
             [[ $# -ge 2 ]] || { echo "Missing value for --export-parent" >&2; exit 2; }
             EXPORT_PARENT="$2"
+            shift 2
+            ;;
+        --subject)
+            [[ $# -ge 2 ]] || { echo "Missing value for --subject" >&2; exit 2; }
+            PUBLIC_COMMIT_SUBJECT="$2"
             shift 2
             ;;
         -h|--help)
@@ -315,13 +322,13 @@ public_commit_subject() {
 }
 
 commit_export() {
-    local export_dir="$1" export_sha="$2" export_branch="$3" subject
+    local export_dir="$1" export_sha="$2" export_branch="$3" subject="${4:-}"
     git -C "${export_dir}" add -A
     if git -C "${export_dir}" diff --cached --quiet; then
         echo "Public export is already up to date with ${export_branch} ${export_sha}."
         return 1
     fi
-    subject="$(public_commit_subject "${export_dir}")"
+    [[ -n "${subject}" ]] || subject="$(public_commit_subject "${export_dir}")"
     printf 'Public export subject: %s\n' "${subject}"
     git -C "${export_dir}" commit -q \
         -m "${subject}" \
@@ -382,7 +389,7 @@ mkdir -p "${export_dir}"
 prepare_export_repo "${export_dir}"
 refuse_if_public_branch_diverged "${export_dir}" "${source_sha}"
 sync_export_tree "${export_tree}" "${export_dir}"
-if ! commit_export "${export_dir}" "${source_sha}" "${source_branch}"; then
+if ! commit_export "${export_dir}" "${source_sha}" "${source_branch}" "${PUBLIC_COMMIT_SUBJECT}"; then
     if (( NO_PUSH )); then
         echo "Export repo: ${export_dir}"
     fi

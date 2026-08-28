@@ -130,6 +130,11 @@ session will not care, don't write it down.
   Do not satisfy the request by only pushing the existing local `public`
   branch if the private source branch has newer manifest-selected
   changes.
+- Before a public export, inspect the diff against the latest public export
+  and the source commits it represents. Pass `sync_public.sh --subject` a
+  factual, one-sentence description of the actual exported change; do not
+  rely on the script's generic file-category fallback when a conductor is
+  making the release.
 - **Large-file / git-fit policy**: commit text-like diff-friendly files
   up to `CORTEX_DEFAULT_GIT_TEXT_MAX_BYTES` by default (code, configs, docs, `*.md`/`*.msg`/`*.py`/
   `*.txt`/`*.csv`/`*.json`/`*.yaml`/`*.toml`/`*.log`). `*.msg`, `*.py`,

@@ -331,7 +331,7 @@ follow.
   watch -c 'bash scripts/agent_roster.sh --color'
   ```
 
-- **Why / gotcha**: `scripts/agent_roster.sh` is the extracted startup roster from `cortex.sh`. Use `--color` with `watch -c` so the status colors survive the refresh loop; use `--no-color` when redirecting the output.
+- **Why / gotcha**: `scripts/agent_roster.sh` is the extracted startup roster from `cortex.sh`; it shows only agents with a heartbeat in the past 30 days. Use `--color` with `watch -c` so the status colors survive the refresh loop; use `--no-color` when redirecting the output.
 - **Last verified**: 2026-05-31.
 
 ### Watching living agents in detail
@@ -677,7 +677,7 @@ follow.
 ### Syncing framework changes to the public cortex repo
 
 - **When**: after any change to framework files (scripts, role prompts, specs) that should be reflected in the configured public `cortex` remote.
-- **Shortcut**: `bash scripts/cortex_doctor.sh --check public-manifest --check public-sync` first, then `bash scripts/sync_public.sh --dry-run`, then `bash scripts/sync_public.sh` only after the dry-run surface is clean. If the live worktree is dirty, run the dry-run from a clean clone or a clean branch checkout; a detached worktree is unsupported because the export records its symbolic source branch. The doctor should catch both known leak patterns and tracked public-looking framework files that were added outside the export manifest.
+- **Shortcut**: `bash scripts/cortex_doctor.sh --check public-manifest --check public-sync` first. Inspect the diff since the latest public export plus its source commits, write one factual sentence describing the actual change, then run `bash scripts/sync_public.sh --dry-run` and `bash scripts/sync_public.sh --subject "cortex: ..."` only after the dry-run surface is clean. If the live worktree is dirty, run the dry-run from a clean clone or a clean branch checkout; a detached worktree is unsupported because the export records its symbolic source branch. The doctor should catch both known leak patterns and tracked public-looking framework files that were added outside the export manifest.
 - **Why / gotcha**: git `master` keeps full commits (notes, logs, users, environments, projects, runtime state, experiment state). Public sync is an export operation, not a live-branch push. The export must include only sanitized framework files and templates, such as `user.instruct.example`, never the live private default-user router, per-user `users/<user>/<user>.instruct` profiles, live `environments/`, live `projects/`, `agents/`, inboxes, archives, logs, or private git history. Include the public `LICENSE` in the export manifest; its standard copyright line is intentionally allowed, while its remaining content is still scanned. The leak scan includes test fixtures, so sample hosts, users, and paths must be neutral too. A root commit is only appropriate when bootstrapping a missing public branch or intentionally replacing a contaminated public branch.
 - **Last verified**: 2026-08-25.
 

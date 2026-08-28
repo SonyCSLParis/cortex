@@ -1629,6 +1629,35 @@ test_public_commit_notice() {
     [[ -z "${output}" ]] || fail "public commit notice should suppress an accounted export"
 }
 
+test_public_commit_subject_override() {
+    local export_repo helper_block output
+
+    helper_block="$(
+        awk '
+            /^public_commit_subject\(\)/ { capture=1 }
+            /^current_branch=/ { exit }
+            capture { print }
+        ' "${CORTEX_DIR}/scripts/sync_public.sh"
+    )"
+    [[ -n "${helper_block}" ]] || fail "could not extract public commit helpers"
+
+    export_repo="${TMP_ROOT}/public-subject-export"
+    git init -q "${export_repo}"
+    git -C "${export_repo}" config user.name test
+    git -C "${export_repo}" config user.email test@example.invalid
+    printf 'framework\n' > "${export_repo}/README.md"
+
+    output="$(CORTEX_DIR="${CORTEX_DIR}" EXPORT_REPO="${export_repo}" bash <<EOF
+set -euo pipefail
+${helper_block}
+commit_export "\${EXPORT_REPO}" deadbeefcafe master 'cortex: publish an explanatory README update'
+git -C "\${EXPORT_REPO}" log -1 --format=%s
+EOF
+    )"
+    [[ "${output}" == *$'cortex: publish an explanatory README update' ]] \
+        || fail "public export ignored explicit descriptive subject: ${output}"
+}
+
 test_research_timeout_portability() {
     grep -Fq 'run_with_timeout 4 env SSH_AUTH_SOCK="${sock}" ssh-add -l' "${CORTEX_DIR}/roles/research/research.sh" \
         || fail "research ssh-agent liveness check must use run_with_timeout"
@@ -1826,6 +1855,7 @@ run_step "ops snapshot messenger selfcheck fallback" test_ops_snapshot_messenger
 run_step "source guards for Linux branches" test_linux_source_guards
 run_step "public license exception scope" test_public_license_exception_scope
 run_step "public integrated-divergence guard" test_public_sync_integrated_divergence_guard
+run_step "public descriptive commit subject" test_public_commit_subject_override
 run_step "public commit notice" test_public_commit_notice
 run_step "research timeout portability" test_research_timeout_portability
 run_step "conductor startup flag polarity" test_conductor_startup_flag_polarity
