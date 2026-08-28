@@ -405,19 +405,6 @@ screen with `bash scripts/start_agent_screen.sh --role node`
 For a single-machine setup, you may not need dedicated nodes at all. They
 become more useful once you spread work across several servers.
 
-### Worker
-
-Workers are elevated task-execution agents.
-
-- started directly with `bash scripts/start_agent.sh --role worker --name <id>`,
-or in a managed screen with `bash scripts/start_agent_screen.sh --role worker --name <id>`
-- can be one-shot (`--once`) or persistent
-- use the same inbox/response model as nodes
-- are intended for bounded write-capable or operations-capable work
-
-Workers are where Cortex becomes a real multi-agent system rather than a
-single chat with helper scripts.
-
 ### Watch
 
 The watch agent is the unattended monitoring role.
@@ -431,6 +418,19 @@ managed screen with `bash scripts/start_agent_screen.sh --role watch`
 Watch is optional. A lot of Cortex use is perfectly fine with only the
 conductor plus a few workers.
 
+### Worker
+
+Workers are elevated task-execution agents.
+
+- started directly with `bash scripts/start_agent.sh --role worker --name <id>`,
+or in a managed screen with `bash scripts/start_agent_screen.sh --role worker --name <id>`
+- can be one-shot (`--once`) or persistent
+- use the same inbox/response model as nodes
+- are intended for bounded write-capable or operations-capable work
+
+Workers are where Cortex becomes a real multi-agent system rather than a
+single chat with helper scripts.
+
 ## Worker Role Reference
 
 Cortex supports plain generic workers, but the framework also ships with
@@ -438,11 +438,13 @@ specialized named worker roles. This catalog is reference material rather than
 a recommended default fleet. The roles are defined by
 `roles/<category>/worker.<name>.instruct` plus
 `roles/<category>/worker.<name>.meta`.
+If a new worker role should be created, just ask the Conductor to do so.
 
 <!-- BEGIN GENERATED: worker-role-catalog -->
 ### Operational workers
 
-These are the workers that keep the system tidy and durable over time.
+These are the workers that keep the system tidy and durable over time. It is useful to have at least the backup,
+commit, and compressor agent running while you perform work on Cortex.
 
 | Worker | Lifecycle | Default cadence | Writes | Domain |
 | --- | --- | --- | --- | --- |
@@ -453,7 +455,7 @@ These are the workers that keep the system tidy and durable over time.
 
 ### Framework review workers
 
-These workers are analysis-first by default: they inspect one framework/runtime slice, report findings, and repair only on explicit COMMAND. They audit and improve Cortex itself by turning otherwise stochastic agent behavior into inspectable evidence, durable findings, and explicit follow-up rules or repairs. They cannot make an LLM deterministic, but they make the surrounding framework as repeatable and accountable as practical.
+These workers are analysis-first by default: they inspect one framework/runtime slice, report findings (as message into the Conductor inbox), and repair only on explicit COMMAND. They audit and improve Cortex itself by turning otherwise stochastic agent behavior into inspectable evidence, durable findings, and explicit follow-up rules or repairs. They cannot make an LLM deterministic, but they make the surrounding framework as repeatable and accountable as practical. They are mainly thought as support for improving the framework itself and are not necessary if you only want to use the framework as-is.
 
 | Worker | Lifecycle | Default cadence | Writes | Domain |
 | --- | --- | --- | --- | --- |
