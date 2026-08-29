@@ -25,8 +25,7 @@ Cortex externalizes that context into structured work state that agents can
 selectively reload. You use the conductor like a normal chat: ask a question,
 discuss an idea, or request work in natural language. The conductor keeps the
 relevant project files, tasks, results, and durable memories organized and can
-delegate bounded work when another agent is useful (currently only on user 
-request).
+delegate bounded work when another agent is useful (on user request).
 
 Cortex helps a person organize and operate their own ongoing work with agents.
 
@@ -43,6 +42,10 @@ Cortex helps a person organize and operate their own ongoing work with agents.
 - **Clear context boundaries:** framework, user, environment, and project facts
   have separate homes. Personalization stays private while reusable framework
   code can remain public.
+- **Reusable knowledge:** task lists track planned and active work; logbooks
+  preserve completed steps, decisions, and results; cheat sheets record stable
+  facts; shortcut files retain proven procedures; and instruction files hold
+  durable rules and preferences.
 - **Operational reach:** workers and nodes can handle bounded implementation,
   research, monitoring, messaging, backup, and multi-machine work.
 - **Natural-language adaptation:** tell the conductor about a recurring
