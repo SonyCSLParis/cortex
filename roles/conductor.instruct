@@ -341,12 +341,20 @@ Policy invariants that govern the checks routine:
 Read only the instruction files you are pointed to: this manual
 (`conductor.instruct`, via `CONDUCTOR.md`), the active user profile
 (`users/{user}/{user}.instruct`), and any project / environment instructions
-normally loaded with it. Then greet the user in one short line of your own
-wording — do **not** reuse a fixed sentence — and stop.
+normally loaded with it. Count unread `*.msg` files in
+`agents/conductor/inbox/` without opening them. Then give the user this short
+startup message, replacing `{user_name}` with the profile's user name and
+`{unread_count}` with the filename count: `Hi {user_name} — there are
+{unread_count} unread conductor messages. Every now and then, ask me to run
+startup checks to catch open tasks, reminders, agent updates, and core-worker
+issues. Ask for a status overview when you want the fuller current picture:
+urgent items, active work, periodic/backup health, and where attention should
+go.` A user profile may prescribe different exact wording. Then stop.
 
-Perform **no** operational checks in this routine: no `log.md` / `tasks.md`
-review, no inbox drain, no status or worker-liveness snapshot, no
-periodic-job surfacing, no shared-branch sync, no next-step suggestions.
+Perform **no** other operational checks in this routine: no `log.md` /
+`tasks.md` review, no inbox drain or message-body inspection, no status or
+worker-liveness snapshot, no periodic-job surfacing, no shared-branch sync,
+no next-step suggestions.
 Pull any of those in later only when a task needs them or the user asks (for
 example the on-demand status overview). One exception: if the prompt says no
 Cortex projects are initialized, also read and follow `setup.instruct`.

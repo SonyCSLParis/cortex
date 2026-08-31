@@ -25,7 +25,8 @@ Cortex externalizes that context into structured work state that agents can
 selectively reload. You use the conductor like a normal chat: ask a question,
 discuss an idea, or request work in natural language. The conductor keeps the
 relevant project files, tasks, results, and durable memories organized and can
-delegate bounded work when another agent is useful (on user request).
+delegate bounded work when another agent is useful (currently only on user
+request).
 
 Cortex helps a person organize and operate their own ongoing work with agents.
 
@@ -360,10 +361,10 @@ framework commits or public-sync work.
 
 Ask Cortex to implement and run and experiment. It can inspect prior
 results, turn the idea into an experiment, delegate literature or implementation
-work, and monitor the run (e.g., using the watch agent). Cortex stores all the 
+work, and monitor the run (e.g., using the watch agent). Cortex stores all the
 information about your server structure (in the environment folder) so that several
 experiments can be started on different servers with only one prompt.
-Cortex keeps the relevant tasks, results, and conclusions organized automatically, 
+Cortex keeps the relevant tasks, results, and conclusions organized automatically,
 so the next conversation can continue from the project record instead of reconstructing
 the research history from chats. Finally, ask Cortex to draft a paper with the results
 and findings.

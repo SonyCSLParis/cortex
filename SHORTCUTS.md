@@ -331,8 +331,8 @@ follow.
   watch -c 'bash scripts/agent_roster.sh --color'
   ```
 
-- **Why / gotcha**: `scripts/agent_roster.sh` is the extracted startup roster from `cortex.sh`; it shows only agents with a heartbeat in the past 30 days. Use `--color` with `watch -c` so the status colors survive the refresh loop; use `--no-color` when redirecting the output.
-- **Last verified**: 2026-05-31.
+- **Why / gotcha**: `scripts/agent_roster.sh` is the extracted startup roster from `cortex.sh`. Membership is "last operated within 30 days", measured from the newest mtime of `agents/{id}/status` / `log.md`, because `agents/{id}/heartbeat` is deleted when an agent exits cleanly and so cannot answer that question. `heartbeat` still drives the colours: `none` plus no live session means stopped cleanly (grey), a stale heartbeat with no session means crash residue (red). Use `--color` with `watch -c` so the status colors survive the refresh loop; use `--no-color` when redirecting the output.
+- **Last verified**: 2026-08-29.
 
 ### Watching living agents in detail
 
@@ -712,7 +712,7 @@ follow.
 
 ### Conductor startup routine
 
-- **When**: the conductor was started with `--startup-checks` (its initial prompt says "perform the startup-checks routine"). This is the opt-in full routine; the default startup path just reads the instruction files and gives a short greeting, no checks. Even the checks routine stays lightweight — see the role spec for the policy carve-outs (do not auto-read shortcut books, environment cheat sheets, or agent status files; pull them in on demand).
+- **When**: the conductor was started with `--startup-checks` (its initial prompt says "perform the startup-checks routine"). This is the opt-in full routine; the default startup path only reads instruction files, counts inbox filenames without inspecting their bodies, and gives its short startup message. Even the checks routine stays lightweight — see the role spec for the policy carve-outs (do not auto-read shortcut books, environment cheat sheets, or agent status files; pull them in on demand).
 - **Shortcut**:
   1. Read the last 50 lines of `agents/conductor/log.md`.
   2. Read open conductor tasks with a targeted grep so only the open lines land in context:
