@@ -87,7 +87,7 @@ validate_tasks_layout() {
             if (status == "doing") return "Doing"
             if (status == "blocked") return "Blocked"
             if (status == "done") return "Done"
-            if (status == "cancelled") return "Cancelled"
+            if (status == "cancelled" || status == "expired") return "Cancelled"
             return status
         }
         /^## Open$/ { current = "open"; next }
@@ -95,10 +95,11 @@ validate_tasks_layout() {
         /^## Blocked$/ { current = "blocked"; next }
         /^## Done$/ { current = "done"; next }
         /^## Cancelled$/ { current = "cancelled"; next }
-        /^- \[(open|doing|blocked|done|cancelled)\]/ {
+        /^- \[(open|doing|blocked|done|cancelled|expired)\]/ {
             status = $0
             sub(/^- \[/, "", status)
             sub(/\].*$/, "", status)
+            if (status == "expired") status = "cancelled"
             if (current == "") {
                 printf "rotate_tasks_done: %s has [%s] task row outside a recognized task section; advisory only, leaving board unchanged\n", rel_tasks, status > "/dev/stderr"
                 invalid = 1
@@ -165,7 +166,7 @@ rotate_one_tasks_file() {
             while IFS= read -r row_line; do
                 [[ -n "${row_line}" ]] || continue
                 row_lines+=("${row_line}")
-            done < <(sed -n "$((header_line + 1)),${section_end_line}p" "${tasks_file}" | grep "^- \\[${status}\\]" || true)
+            done < <(sed -n "$((header_line + 1)),${section_end_line}p" "${tasks_file}" | grep -E "^- \\[(${status})\\]" || true)
             local row_count archive_count
             row_count="$(bash_array_len row_lines)"
             if (( row_count <= rotate_min || row_count <= keep_recent )); then
@@ -224,7 +225,7 @@ rotate_one_tasks_file() {
                 sed -n "${next_header_line},\$p" "${tasks_file}" >> "${tmp_tasks}"
             fi
 
-            new_live_count="$(grep -c "^- \\[${status}\\]" "${tmp_tasks}" || true)"
+            new_live_count="$(grep -Ec "^- \\[(${status})\\]" "${tmp_tasks}" || true)"
             if (( new_live_count != keep_recent )); then
                 echo "rotate_tasks_done: ${rel_tasks} expected ${keep_recent} live ${section_name} row(s) after rotation, got ${new_live_count}" >&2
                 exit 1
@@ -238,7 +239,7 @@ rotate_one_tasks_file() {
             echo "rotate_tasks_done: ${rel_tasks} archived ${archive_count} older ${section_name} row(s) to $(basename "${history_file}"); kept ${keep_recent} live"
         }
 
-        rotate_section_rows "Cancelled" "cancelled" "${KEEP_RECENT_CANCELLED}" "${CANCELLED_ROTATE_MIN}" "tasks_cancelled"
+        rotate_section_rows "Cancelled" "cancelled|expired" "${KEEP_RECENT_CANCELLED}" "${CANCELLED_ROTATE_MIN}" "tasks_cancelled"
         rotate_section_rows "Done" "done" "${KEEP_RECENT_DONE}" "${DONE_ROTATE_MIN}" "tasks_done"
     ) 9>"${lock_file}"
 }

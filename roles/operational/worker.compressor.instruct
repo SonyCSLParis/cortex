@@ -461,12 +461,16 @@ compressor is alive and idle.
 
 ---
 
-## Task-board layout advisory — one-shot envelope
+## Task-board advisories — one-shot envelopes
 
-When a `tasks.md` layout defect is detected (status/section mismatch on
-a board the compressor cannot itself edit, for example
-`agents/conductor/tasks.md`), the compressor must surface it to the
-conductor exactly once per occurrence — not on every wake.
+Two advisory kinds share one dedup mechanism. `TYPE: layout_advisory`:
+a `tasks.md` layout defect (status/section mismatch). `TYPE: stale_advisory`:
+`bash scripts/task_board_report.sh --stale` prints flagged rows (stale,
+overdue, `doing` without `until`). For the stale kind, treat the whole
+flagged listing as one "board" keyed `task_board_report` in the state
+file below. Never edit the flagged rows yourself. The compressor must
+surface each advisory to the conductor exactly once per occurrence — not
+on every wake.
 
 1. Maintain a fingerprint file at
    `agents/compressor/.layout_advisory_state`. Each line is
@@ -478,14 +482,15 @@ conductor exactly once per occurrence — not on every wake.
    Do not re-log the advisory either.
 4. If the sha256 differs (rows changed) or the board is not yet in the
    state file, queue a COMMAND/STATUS envelope to
-   `agents/conductor/inbox/` with `TYPE: layout_advisory`, the board
-   path, and the specific rows that need fixing. Then store the new
+   `agents/conductor/inbox/` with the advisory `TYPE`, the board
+   path (or `task_board_report`), and the specific rows that need fixing. Then store the new
    `(board_path, sha256, now_epoch)` line.
 5. When the defect goes away (the board parses cleanly), remove that
    board's line from the state file.
 
-The conductor consumes layout advisories like any other STATUS message —
-opens or updates a `tasks.md` entry and acts. The dedup mechanism keeps
+The conductor consumes these advisories like any other STATUS message —
+for stale rows it closes, extends, or marks them `[expired]`; for layout
+defects it repairs the board. The dedup mechanism keeps
 the same advisory from churning the inbox while the conductor is busy.
 
 ---

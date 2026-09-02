@@ -925,6 +925,37 @@ EOF
     trap - RETURN
 }
 
+test_task_board_report_flags() {
+    local root out count old_id recent_id
+    root="${TMP_ROOT}/task-board-report"
+    mkdir -p "${root}/agents/demo"
+    old_id="T20260101-01"
+    recent_id="T$(date +%Y%m%d)-01"
+    cat > "${root}/agents/demo/tasks.md" <<TASKS
+## Open
+- [open] ${recent_id} | conductor | P2 | fresh open row | local | none
+## Doing
+- [doing] ${old_id} | conductor | P1 | doing without until | local | none
+- [doing] ${recent_id} | conductor | P1 | doing with future until | local | until 2999-01-01
+- [doing] ${old_id} | conductor | P1 | doing overdue | local | until 2026-01-02
+## Blocked
+- [blocked] ${old_id} | conductor | P2 | REMINDER (due 2026-01-03): old blocked | local | none
+## Cancelled
+- [expired] ${old_id} | conductor | P2 | expired row must be ignored | local | none
+## Done
+TASKS
+    out="$(CORTEX_DIR="${root}" bash "${CORTEX_DIR}/scripts/task_board_report.sh" --stale)"
+    printf '%s\n' "${out}" | grep -Eq '^no-until,stale +doing +' || fail "report should flag doing without until as no-until,stale: ${out}"
+    printf '%s\n' "${out}" | grep -Eq '^overdue +doing +' || fail "report should flag past until as overdue: ${out}"
+    printf '%s\n' "${out}" | grep -Eq '^stale,due +blocked +' || fail "report should flag old blocked reminder as stale,due: ${out}"
+    printf '%s\n' "${out}" | grep -Fq 'future until' && fail "report --stale must not list a healthy doing row"
+    printf '%s\n' "${out}" | grep -Fq 'fresh open row' && fail "report --stale must not list a fresh open row"
+    printf '%s\n' "${out}" | grep -Fq 'expired row' && fail "report must ignore [expired] rows"
+    count="$(CORTEX_DIR="${root}" bash "${CORTEX_DIR}/scripts/task_board_report.sh" --count)"
+    [[ "${count}" == "3" ]] || fail "expected 3 flagged rows, got ${count}"
+    rm -rf "${root}"
+}
+
 test_worker_dynamic_next_wake() {
     local wake_root output
 
@@ -1871,6 +1902,7 @@ run_step "conductor no-alt-screen flag" test_conductor_no_alt_screen_flag
 run_step "conductor current-model aliases" test_conductor_model_aliases
 run_step "local agent log paths" test_agent_logs_are_local
 run_step "launcher cleanup marks offline" test_start_agent_cleanup_marks_offline
+run_step "task board report flags" test_task_board_report_flags
 run_step "existing deterministic framework smokes" run_existing_deterministic_checks
 
 if (( WITH_LIVE_SMOKE == 1 )); then

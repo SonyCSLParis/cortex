@@ -114,7 +114,7 @@ check_tasks() {
                     if (status == "doing") return "Doing"
                     if (status == "blocked") return "Blocked"
                     if (status == "done") return "Done"
-                    if (status == "cancelled") return "Cancelled"
+                    if (status == "cancelled" || status == "expired") return "Cancelled"
                     return status
                 }
                 /^## Open$/ { current = "open"; next }
@@ -122,10 +122,11 @@ check_tasks() {
                 /^## Blocked$/ { current = "blocked"; next }
                 /^## Done$/ { current = "done"; next }
                 /^## Cancelled$/ { current = "cancelled"; next }
-                /^- \[(open|doing|blocked|done|cancelled)\]/ {
+                /^- \[(open|doing|blocked|done|cancelled|expired)\]/ {
                     status = $0
                     sub(/^- \[/, "", status)
                     sub(/\].*$/, "", status)
+                    if (status == "expired") status = "cancelled"
                     if (current == "") {
                         printf "%s: [%s] row outside recognized section\n", rel_tasks, status
                         next

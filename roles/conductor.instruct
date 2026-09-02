@@ -59,7 +59,7 @@ when unsure.
 |---|---|---|
 | `trivial` | ≤3 tool calls, reversible, no experiment result, no framework change, no deletion. Pings, single-file lookups, one-shot status checks, trivial edits, quick answers. | None. No `TASK_ID`, no `tasks.md`, no `logbook.md`, no `shortcut.md` consult. One line in `log.md` only if the event is operationally notable. |
 | `standard` | Queued COMMANDs, small inventories, single-file fixes, routine coordination. | One-line `log.md` entry. `tasks.md` line only if explicitly tracked. `logbook.md` entry only for scientific / training / data-work outcomes that matter for a future session — then ≤3 terse bullets. Shortcut consult only if a matching recipe is likely. |
-| `heavy` | Experiments, model runs, deletions, framework changes, anything producing numeric results the user should be able to find later, incident response. | Full bookkeeping: `TASK_ID`, `tasks.md` update, `log.md` one-liner, shortcut consult + refine, commit. Add a `logbook.md` entry only when the heavy task is scientific / training / data work or produces numeric results the user should be able to find later. |
+| `heavy` | Experiments, model runs, deletions, framework changes, anything producing numeric results the user should be able to find later, incident response. | `log.md` one-liner, shortcut consult + refine, commit. A `TASK_ID` and `tasks.md` row **only if the work outlives this session or another agent must pick it up** — single-session heavy work stays off the boards. Add a `logbook.md` entry only when the heavy task is scientific / training / data work or produces numeric results the user should be able to find later. |
 
 Stated differently: ceremony scales with durability. If a future
 session will not care, don't write it down.
@@ -88,10 +88,11 @@ session will not care, don't write it down.
   speculative ideas in the current user's home under `users/` (see
   root `user.instruct` for the default user, then use
   `users/{user}/...`).
-- For experiments, evals, sweeps, server processes, or remote data jobs
-  with a lifecycle worth revisiting, keep the durable identity, host/session
-  details, output paths, and outcome in the project's `tasks.md` and
-  `logbook.md`. Do not rely on framework-level live run reconciliation.
+- For experiments, evals, sweeps, server processes, or remote data jobs,
+  keep the durable identity, host/session details, output paths, and
+  outcome in the project's `logbook.md`. A run is not a task: open a
+  `tasks.md` row only when a decision waits on its result and the user wants
+  to be reminded. Do not rely on framework-level live run reconciliation.
 - Keep `agents/conductor/log.md`, `agents/conductor/logbook.md`, and
   the current `environments/{env}/cheat_sheet.md` current as you work —
   tier-appropriate only.
@@ -433,16 +434,20 @@ For any inbound message from an agent that reports upward to the conductor
 (`RESPONSE`, `STATUS`, or `worker_periodic_check`), ask one question: would future-you be
 annoyed if this stayed only in `agents/conductor/inbox/` / archive?
 
-If yes, it is **non-trivial** and the conductor must do both:
-- open or update a `tasks.md` entry that captures the needed follow-up,
-  owner, and next step
-- surface the information to the user in chat at the next active
-  opportunity (immediately if chat is active; otherwise in the next
-  startup reminder, unless watch/escalation rules justify faster action)
+If yes, it is **non-trivial**. Route it by kind, then surface it to the
+user in chat at the next active opportunity (immediately if chat is
+active; otherwise in the next startup reminder, unless watch/escalation
+rules justify faster action):
+- a request, failure, or result that needs action → open or update a
+  `tasks.md` entry with follow-up, owner, and next step
+- a suggestion or observation (periodic efficiency / consistency /
+  security findings, audit notes) → one `[new]` row in the owning
+  project's `findings.md` (framework findings go to
+  `projects/cortex/findings.md`). It becomes a task only when the user
+  accepts it; otherwise mark it `dismissed` with a short reason. Boards
+  stay `P0`–`P2`; there is no `P3` backlog on a task board.
 
-Examples: periodic efficiency findings, worker requests for clarification,
-agent-reported failures, substantive status findings, or meaningful
-result summaries. Do not bury such messages in archive-only handling.
+Do not bury such messages in archive-only handling.
 
 ---
 
@@ -477,7 +482,12 @@ reminders, and the project board for project-owned work. Track standard and
 heavy work with a `TASK_ID`; task state must reflect whether execution is
 active, blocked, cancelled, or merely open. The complete board/logbook format,
 placement, and transition procedure lives in the `Conductor bookkeeping`
-shortcut.
+shortcut. A `doing` row carries `until YYYY-MM-DD` in its notes;
+`bash scripts/task_board_report.sh --stale` lists stale, overdue, and
+`until`-less rows across every board. Run it in startup-checks and the status
+overview and resolve each flagged row: close it with evidence, extend
+`until`, or mark it `[expired]`. `[expired]` means aged out with no evidence
+either way; never write `cancelled` for that case.
 
 **Closure invariant**: a task row is never more than one write behind the
 evidence about it. Whenever you produce evidence that bears on a tracked

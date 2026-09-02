@@ -456,6 +456,14 @@ collect_tasks() {
     elif (( block_n == 0 )); then
         add_quiet "No open conductor tasks."
     fi
+
+    local flagged_n=0
+    if [[ -f scripts/task_board_report.sh ]]; then
+        flagged_n="$(bash scripts/task_board_report.sh --count 2>/dev/null || printf '0')"
+    fi
+    if (( flagged_n > 0 )); then
+        add_warning "${flagged_n} stale/overdue task $(plural "${flagged_n}" row) across all boards (bash scripts/task_board_report.sh --stale)."
+    fi
 }
 
 collect_periodics() {

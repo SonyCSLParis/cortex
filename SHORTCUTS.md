@@ -715,11 +715,8 @@ follow.
 - **When**: the conductor was started with `--startup-checks` (its initial prompt says "perform the startup-checks routine"). This is the opt-in full routine; the default startup path only reads instruction files, counts inbox filenames without inspecting their bodies, and gives its short startup message. Even the checks routine stays lightweight — see the role spec for the policy carve-outs (do not auto-read shortcut books, environment cheat sheets, or agent status files; pull them in on demand).
 - **Shortcut**:
   1. Read the last 50 lines of `agents/conductor/log.md`.
-  2. Read open conductor tasks with a targeted grep so only the open lines land in context:
-     ```bash
-     rg '^- \[open\]' agents/conductor/tasks.md
-     ```
-  3. Resolve the current user via root `user.instruct`, then read `[open]` lines in `users/{user}/tasks.md`. Reminders may carry `REMINDER (due YYYY-MM-DD): ...`; surface any whose due date is on or before today.
+  2. `bash scripts/task_board_report.sh --stale` — flagged live rows on every board (stale, overdue, `doing` without `until`, due reminders). Resolve or surface each; then `rg '^- \[open\]' agents/conductor/tasks.md` for the plain open list.
+  3. Resolve the current user via root `user.instruct`, then read `[open]` lines in `users/{user}/tasks.md` (due reminders are already flagged by step 2). Count `[new]` rows in `projects/cortex/findings.md` and mention the number if non-zero.
   4. Drain `agents/conductor/inbox/` — self-check alerts first (STATUS with body prefixed `TYPE: selfcheck_alert`), then other unread. Archive what you read; open or update a `tasks.md` item for any non-trivial agent message before continuing.
   5. Only if the log tail or inbox references an unclear experiment / training / data-work thread, read the last 1–2 `##` sections of `agents/conductor/logbook.md` (tail-first; expand upward only if still unclear).
   6. If root `user.instruct` is missing, suggest creating it and pointing it at `users/<user>/<user>.instruct`.
@@ -739,7 +736,7 @@ follow.
      Human-readable operator view (Critical / Warnings / Active / Quiet) covering queues, conductor task counts, active project runs, periodic health, core worker liveness / provider cooldowns, backup freshness, and `watch.txt` activity. Always start here to avoid ad-hoc directory digging.
   2. Last 50 lines of `agents/conductor/log.md`.
   3. If the thread is experiment / training / data-work related and still unclear, read the last 1–2 `##` sections of `agents/conductor/logbook.md` (expand upward only if unclear; use tags for cross-entry lookups).
-  4. `agents/conductor/tasks.md` — only the lines the snapshot flagged or the tier calls for. Include open `users/{user}/tasks.md` lines when the request is general or when due reminders may be relevant.
+  4. `bash scripts/task_board_report.sh --stale` when the snapshot warns about stale/overdue rows, then `agents/conductor/tasks.md` — only the lines the snapshot flagged or the tier calls for. Include open `users/{user}/tasks.md` lines when the request is general or when due reminders may be relevant.
   5. `agents/conductor/inbox/` — self-check alerts first, then other unread.
   6. If local setup is initialized and core persistent operational workers are not running, suggest starting the missing / stale ones as part of the overview.
   7. Tell the user where attention should go. If nothing urgent: one sentence on overall state.
@@ -778,10 +775,22 @@ follow.
   - Place cross-project/fleet work in `agents/conductor/tasks.md`, user
     reminders in `users/{user}/tasks.md`, and project-owned work in
     `projects/{project}/tasks.md`.
+  - Open a row only for work that outlives the session or hands off to
+    another agent; a run gets a row only when a decision waits on its result.
   - Use `- [status] TASK_ID | owner | priority | summary | latest_msg | notes`
     with `TYYYYMMDD-XX` identifiers. Set `doing` only while an executor or
-    fresh evidence exists; otherwise use `open`, `blocked`, or `cancelled`.
-    Keep notes as an operational pointer, not a journal.
+    fresh evidence exists, and put `until YYYY-MM-DD` in notes; otherwise use
+    `open`, `blocked`, or `cancelled`. Sweeps mark evidence-less aged rows
+    `[expired]` (kept under `## Cancelled`), never `cancelled`. Keep notes as
+    an operational pointer, not a journal.
+  - `bash scripts/task_board_report.sh [--stale|--count]` lists live rows on
+    all boards with age and flags (`stale`, `overdue`, `no-until`, `due`);
+    thresholds are `CORTEX_DEFAULT_TASKS_OPEN_STALE_DAYS` and
+    `CORTEX_DEFAULT_TASKS_DOING_MAX_DAYS`. The compressor sends a one-shot
+    `stale_advisory` when it finds flagged rows.
+  - Agent suggestions go to `projects/{project}/findings.md` as
+    `- [new] FYYYYMMDD-XX | source | MSG_ID | finding | decision`; `accepted`
+    names the task it opened, `dismissed` carries one short reason.
   - A tracked COMMAND includes `TASK_ID`, sets the owning row to `doing` with
     its `MSG_ID`, and maps its RESPONSE through `TASK_ID` / `REF`.
   - Every project task gets a project-logbook entry plus a one-line conductor
