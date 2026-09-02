@@ -692,6 +692,9 @@ A good progression is:
 3. add watch if unattended monitoring becomes useful
 4. add remote nodes or research specialists when the workload genuinely wants
    parallelism
+5. add the "framework review workers" above if you extend the framework itself
+   and want ongoing evidence that it stays secure, consistent, effective, and
+   free of ownership drift
 
 Do not launch a full fleet just because the roles exist. Cortex is more useful
 when the running agents reflect the real workload.
