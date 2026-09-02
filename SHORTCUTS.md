@@ -791,7 +791,16 @@ follow.
   - Logbook entries use `## [ISO_TIMESTAMP] — topic {#tag}` and terse bullets.
     Reuse a thread tag; include numeric results in the same form shown to the
     user. `compressor` owns rotation and summaries.
+  - Closure pairings (same step, never a follow-up): a logbook entry naming a
+    `TASK_ID` flips its row and puts the `{#tag}` in notes; archiving a
+    RESPONSE with `TASK_ID`/`REF` first sets the row (`done`/`blocked`/`open`)
+    with the new `MSG_ID`; a chat answer reporting a result closes the row
+    before it is sent; a "launch X" row is `done` once the launch is verified
+    (open a separate row only if a decision waits on the result); opening a
+    superseding task marks the old one `cancelled` with `superseded by T...`.
 - **Why / gotcha**: task state is current operational truth, while logbooks
   preserve conclusions and numeric results. Do not leave stale work as
-  `doing`, or duplicate a project result in the central logbook.
-- **Last verified**: 2026-08-26.
+  `doing`, or duplicate a project result in the central logbook. The
+  2026-08-25 sweep cancelled 112 aged rows, about half already finished —
+  closure had no trigger.
+- **Last verified**: 2026-09-02.

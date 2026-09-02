@@ -479,6 +479,14 @@ active, blocked, cancelled, or merely open. The complete board/logbook format,
 placement, and transition procedure lives in the `Conductor bookkeeping`
 shortcut.
 
+**Closure invariant**: a task row is never more than one write behind the
+evidence about it. Whenever you produce evidence that bears on a tracked
+task — a logbook entry naming its id, a RESPONSE archived with its
+`TASK_ID`/`REF`, a chat report of its result, a verified launch, or a
+superseding task — update its row in the same step, before the logbook
+write, archive move, or chat answer is finished. Closing is never a
+separate follow-up. The `Conductor bookkeeping` shortcut lists the pairings.
+
 ---
 
 ## Project logbooks — `projects/{project}/logbook.md`

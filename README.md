@@ -359,28 +359,41 @@ framework commits or public-sync work.
 
 ### Research (e.g., Deep Learning)
 
-Ask Cortex to implement and run and experiment. It can inspect prior
-results, turn the idea into an experiment, delegate literature or implementation
-work, and monitor the run (e.g., using the watch agent). Cortex stores all the
-information about your server structure (in the environment folder) so that several
-experiments can be started on different servers with only one prompt.
-Cortex keeps the relevant tasks, results, and conclusions organized automatically,
-so the next conversation can continue from the project record instead of reconstructing
-the research history from chats. Finally, ask Cortex to draft a paper with the results
-and findings.
+Use Cortex for research that lasts longer than one chat: develop an idea,
+inspect what has already been tried, launch a bounded run on a suitable server,
+and return days later to a project record that explains what ran and why. Cortex
+keeps environment-specific knowledge about the available machines, their
+capabilities, and their setup, so it can place work without rebuilding that
+context each time. While a run is active, the watch agent can monitor it and
+notify you via Signal or Telegram about meaningful failures or changes.
+Configurations, output locations, results, and durable conclusions stay with
+the project, making new work easier to compare against earlier runs without
+relying on chat history alone.
 
-### Engineering
+### Bring an existing project into Cortex
 
-Ask the conductor to diagnose a bug or implement a feature. It can inspect the
-project rules, assign a bounded change to a worker, run the relevant checks,
-and leave the code, task state, and durable rationale aligned.
+Point Cortex at an existing repository, even if it has months of runs and
+uneven documentation. Cortex links the project instead of copying it,
+inventories the surviving code and artifacts, and creates a concise project
+record.
 
-### Long-running operations
+It writes down what can still be checked—saved configs, checkpoints, metrics,
+and Git commits—and clearly marks what is missing. The next conversation can
+start from that project record: what was tried, what is known, what remains
+uncertain, and what to do next.
 
-Use nodes and workers to inspect several machines, launch or monitor long jobs,
-and use the watch agent to keep an eye on experiments and support messenger
-communication while you are away. E.g., you can ask the watch agent to write you
-a Telegram message in case an experiment fails or there are any system anomalies.
+### Create your own agent
+
+Create a small specialist agent for a responsibility you want Cortex to remember
+over time. For example, a scheduling agent can work with a connected calendar,
+your reminders, and project deadlines to maintain a clear view of the coming days.
+
+It could prepare a short daily agenda, flag conflicts between meetings and focused
+work, and turn a note such as “make time to finish the revision before Friday” into
+a tracked reminder. If a deadline moves, it can identify affected plans and suggest
+a revised schedule. It should ask before sending invitations, changing calendar
+events, or messaging anyone; its durable record remains in your own Cortex
+workspace, alongside the projects it supports.
 
 The exact actions available in each workflow depend on the permissions and
 filesystem or host access granted to the active agents.
@@ -452,8 +465,7 @@ If a new worker role should be created, just ask the Conductor to do so.
 <!-- BEGIN GENERATED: worker-role-catalog -->
 ### Operational workers
 
-These are the workers that keep the system tidy and durable over time. It is useful to have at least the backup,
-commit, and compressor agent running while you perform work on Cortex.
+These are the workers that keep the system tidy and durable over time.
 
 | Worker | Lifecycle | Default cadence | Writes | Domain |
 | --- | --- | --- | --- | --- |
@@ -464,7 +476,7 @@ commit, and compressor agent running while you perform work on Cortex.
 
 ### Framework review workers
 
-These workers are analysis-first by default: they inspect one framework/runtime slice, report findings (as message into the Conductor inbox), and repair only on explicit COMMAND. They audit and improve Cortex itself by turning otherwise stochastic agent behavior into inspectable evidence, durable findings, and explicit follow-up rules or repairs. They cannot make an LLM deterministic, but they make the surrounding framework as repeatable and accountable as practical. They are mainly thought as support for improving the framework itself and are not necessary if you only want to use the framework as-is.
+These workers are analysis-first by default: they inspect one framework/runtime slice, report findings, and repair only on explicit COMMAND. They audit and improve Cortex itself by turning otherwise stochastic agent behavior into inspectable evidence, durable findings, and explicit follow-up rules or repairs. They cannot make an LLM deterministic, but they make the surrounding framework as repeatable and accountable as practical.
 
 | Worker | Lifecycle | Default cadence | Writes | Domain |
 | --- | --- | --- | --- | --- |
