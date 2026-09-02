@@ -105,8 +105,8 @@ No task runs at `heavy` by default. Pick the lowest tier that fits.
     new evidence or a different bounded slice. Routine command
     execution, transient progress, and one-shot task output belong in
     `agents/{id}/log.md` or the RESPONSE body, not in the worker logbook.
-    Use the same terse `## [ISO_TIMESTAMP] — topic` plus bullets style
-    as the other Cortex logbooks.
+    Logbook entries use the header style from `roles/all.instruct`
+    (Activity log section).
 13. **Honor task ids.**
     If the command includes `TASK_ID: ...`, include a `TASK_ID:` line in
     your final response.

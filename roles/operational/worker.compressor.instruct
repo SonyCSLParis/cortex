@@ -179,10 +179,11 @@ Do not create summaries for individual history shards. The live family's
 
 ## Linking system
 
-Logbook entries use `## [ISO_TIMESTAMP] — topic` headers. The full
-header line is the canonical lookup key; the bracketed timestamp alone
-is normally unique. To find the source for any summary entry, grep
-the live source plus its sibling `history/` shards (when present):
+Logbook entries use the header style from `roles/all.instruct` (Activity
+log section). The full header line is the canonical lookup key; the
+bracketed timestamp alone is normally unique. To find the source for any
+summary entry, grep the live source plus its sibling `history/` shards
+(when present):
 
     rg -nF -- '[ISO_TIMESTAMP]' <source> [<source_parent_dir>/history/]
 

@@ -39,6 +39,13 @@ roles/<category>/
 Co-locate single-owner helper logic with the bundle instead of placing
 it in shared `scripts/` without ownership markers.
 
+A category may also ship one shared addendum,
+`roles/<category>/<category>.instruct`. When present, and no role-local
+hook selected a team template, `roles/worker.sh` auto-injects it between
+`roles/worker.instruct` and the worker's own override for every worker
+whose manifest declares that `META_category`. Put text shared by all
+workers of the category there, once, instead of repeating it per override.
+
 ## What belongs where
 
 Keep the three-way split clean:

@@ -80,9 +80,8 @@ WATCHLIST coverage rules:
   Watch never writes `projects/*/logbook.md` itself — it produces the
   content and lets the conductor record it.
 - When you manually append or rewrite `agents/watch/logbook.md`, do it
-  atomically (`.tmp` + `mv`). Use the same terse
-  `## [ISO_TIMESTAMP] — topic` plus bullets style as the other Cortex
-  logbooks.
+  atomically (`.tmp` + `mv`). Logbook entries use the header style from
+  `roles/all.instruct` (Activity log section).
 - `agents/watch/notes.txt` is enabled by `roles/watch.meta` and may be used
   as private cross-wake scratch memory: provisional hypotheses, partial
   evidence, unresolved questions, and next checks. Keep it as scratch state,

@@ -200,6 +200,12 @@ worker_select_instruction_templates() {
     local template_hook=""
     template_hook="$(worker_resolve_hook_name select_instruction_templates || true)"
     [[ -z "${template_hook}" ]] || "${template_hook}"
+    # Convention: when no hook picked a team template, a bundle may ship a
+    # category-level addendum at roles/<META_category>/<META_category>.instruct.
+    if [[ -z "${INSTRUCT_TEAM_TEMPLATE:-}" ]] && worker_load_meta && [[ -n "${META_category:-}" ]]; then
+        local category_template="${CORTEX_DIR}/roles/${META_category}/${META_category}.instruct"
+        [[ -f "${category_template}" ]] && INSTRUCT_TEAM_TEMPLATE="${category_template}"
+    fi
     INSTRUCT_OVERRIDE_TEMPLATE="$(resolve_worker_override_template "${AGENT_ID}" || true)"
     SELFCHECK_INTERVAL="${SELFCHECK_INTERVAL:-0}"
     STATUSREPORT_INTERVAL="${STATUSREPORT_INTERVAL:-0}"
@@ -358,6 +364,15 @@ worker_bwrap_pid_args() {
     fi
 
     named_array_append "${pid_args_ref}" --unshare-pid
+}
+
+worker_bwrap_device_args() {
+    local device_args_ref="$1"
+    security_bwrap_device_args "${device_args_ref}"
+
+    local device_hook=""
+    device_hook="$(worker_resolve_hook_name append_bwrap_device_args || true)"
+    [[ -z "${device_hook}" ]] || "${device_hook}" "${device_args_ref}"
 }
 
 worker_prepare_registration() {

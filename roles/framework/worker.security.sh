@@ -18,6 +18,7 @@ worker_security_launch_claude() {
     local claude_sandbox_dir; claude_sandbox_dir="$(mktemp -d)"
     local -a security_dir_args=()
     local -a security_ro_binds=()
+    local -a security_device_args=()
     local -a security_claude_cmd=()
     local -a security_claude_ipc_binds=()
     local security_claude_bin=""
@@ -33,6 +34,7 @@ worker_security_launch_claude() {
         return 1
     fi
     security_bwrap_dir_args security_dir_args
+    security_bwrap_device_args security_device_args
     claude_ipc_binds security_claude_ipc_binds
     security_claude_cmd=("${security_claude_bin}" --print --verbose --effort "${CLAUDE_EFFORT}")
     [[ -n "${CLAUDE_MODEL}" ]] && security_claude_cmd+=(--model "${CLAUDE_MODEL}")
@@ -42,7 +44,7 @@ worker_security_launch_claude() {
         --unshare-uts \
         "${security_dir_args[@]}" \
         "${security_ro_binds[@]}" \
-        --dev-bind /dev /dev \
+        "${security_device_args[@]}" \
         --proc /proc \
         --tmpfs /tmp \
         "${security_claude_ipc_binds[@]}" \
@@ -73,6 +75,7 @@ worker_security_launch_codex() {
     local security_codex_bin=""
     local -a security_dir_args=()
     local -a security_ro_binds=()
+    local -a security_device_args=()
     local security_scrubber_pid=""
     security_codex_bin="$(command -v codex 2>/dev/null || true)"
     if [[ -z "${security_codex_bin}" ]]; then
@@ -83,6 +86,7 @@ worker_security_launch_codex() {
         return 1
     fi
     security_bwrap_dir_args security_dir_args
+    security_bwrap_device_args security_device_args
     if ! security_codex_home="$(prepare_codex_stage_home)"; then
         return 1
     fi
@@ -94,7 +98,7 @@ worker_security_launch_codex() {
         --unshare-uts \
         "${security_dir_args[@]}" \
         "${security_ro_binds[@]}" \
-        --dev-bind /dev /dev \
+        "${security_device_args[@]}" \
         --proc /proc \
         --tmpfs /tmp \
         --bind "${security_agent_dir}" "${security_agent_dir}" \

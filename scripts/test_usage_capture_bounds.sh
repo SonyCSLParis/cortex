@@ -52,13 +52,42 @@ codex gpt-5.6-sol 4 20
 codex gpt-5.6-terra 2 12
 codex gpt-5.6-luna 0.2 1.2
 claude claude-fable-5 10 50
-claude claude-sonnet-5 3 15
+claude claude-fable-5-1 10 50
+claude claude-opus-5 5 25
+claude claude-sonnet-5 2 10
 claude claude-opus-4-8 5 25
+claude claude-haiku-4-5-20251001 1 5
 PRICES
 
 # 2) Recording path: feed a fake transcript containing only a poisoned total.
 workdir="$(mktemp -d)"
 trap 'rm -rf "${workdir}"' EXIT
+
+# 1b) Claude session match honours the per-run project-dir override and reads
+# Agent-tool subagent transcripts under <session>/subagents/.
+stage="${workdir}/claude_stage"
+mkdir -p "${stage}/sess1/subagents"
+now_epoch="$(date -u +%s)"
+now_iso="$(date -u -d "@${now_epoch}" '+%Y-%m-%dT%H:%M:%S.000Z' 2>/dev/null || date -u -r "${now_epoch}" '+%Y-%m-%dT%H:%M:%S.000Z')"
+printf '{"type":"assistant","timestamp":"%s","requestId":"r1","message":{"id":"m1","model":"claude-fable-5-1","usage":{"input_tokens":10,"cache_creation_input_tokens":20,"cache_read_input_tokens":30,"output_tokens":40}}}\n' "${now_iso}" > "${stage}/sess1.jsonl"
+printf '{"type":"assistant","timestamp":"%s","requestId":"r2","message":{"id":"m2","model":"claude-fable-5-1","usage":{"input_tokens":1,"cache_creation_input_tokens":2,"cache_read_input_tokens":3,"output_tokens":4}}}\n' "${now_iso}" > "${stage}/sess1/subagents/agent-a.jsonl"
+match_row="$(CORTEX_USAGE_CLAUDE_PROJECT_DIR="${stage}" cortex_usage_claude_session_match "$((now_epoch - 60))" "$((now_epoch + 60))" /nonexistent/cwd || true)"
+if [[ "${match_row}" != "claude-fable-5-1	11	22	33	44	2" ]]; then
+    echo "FAIL: claude session match with override+subagents expected 'claude-fable-5-1 11 22 33 44 2' but got '${match_row}'" >&2
+    fail=1
+fi
+# 1c) A pinned session id excludes a concurrent decoy session in the same dir.
+printf '{"type":"assistant","timestamp":"%s","requestId":"r9","message":{"id":"m9","model":"claude-fable-5-1","usage":{"input_tokens":1000,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}}\n' "${now_iso}" > "${stage}/decoy.jsonl"
+match_row="$(CORTEX_USAGE_CLAUDE_PROJECT_DIR="${stage}" CORTEX_USAGE_CLAUDE_SESSION_ID=sess1 cortex_usage_claude_session_match "$((now_epoch - 60))" "$((now_epoch + 60))" /nonexistent/cwd || true)"
+if [[ "${match_row}" != "claude-fable-5-1	11	22	33	44	2" ]]; then
+    echo "FAIL: pinned session match expected 'claude-fable-5-1 11 22 33 44 2' (decoy excluded) but got '${match_row}'" >&2
+    fail=1
+fi
+sid_probe="$(cortex_usage_new_claude_session_id || true)"
+if [[ ! "${sid_probe}" =~ ^[0-9a-f-]{36}$ ]]; then
+    echo "FAIL: cortex_usage_new_claude_session_id produced '${sid_probe}'" >&2
+    fail=1
+fi
 mkdir -p "${workdir}/users/test/usage"
 transcript="${workdir}/transcript.txt"
 ledger="${workdir}/users/test/usage/usage.tsv"

@@ -94,6 +94,11 @@ worker_sweep_append_bwrap_pid_args() {
     return 0
 }
 
+worker_sweep_append_bwrap_device_args() {
+    local device_args_ref="$1"
+    security_bwrap_append_nvidia_device_binds "${device_args_ref}"
+}
+
 worker_sweep_append_ro_base() {
     local ro_binds_ref="$1"
     if [[ -d /run/screen ]]; then

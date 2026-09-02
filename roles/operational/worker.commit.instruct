@@ -187,26 +187,22 @@ Good candidates to package when explicitly authorized:
 - bounded worker/runtime text updates that are durable and low-surprise
 - a small related cluster spanning code + docs when they obviously ship
   together
-- `*.msg`, `*.py`, and `*.txt` files, including untracked ones. Treat
-  these extensions as track-and-commit by default when they are inside
-  the requested repo scope; do not skip them merely because they are
-  untracked, fresh, or message/log-like.
+- anything inside the requested repo scope that the git-fit policy in
+  `SHORTCUTS.md` ("Handling large project files in git") marks
+  commit-default, including untracked files; do not skip them merely
+  because they are untracked, fresh, or message/log-like.
 
 Leave out unless explicitly requested or unusually clear:
 
-- secrets, credentials, token caches, private keys
-- scratch/runtime state such as `working`, inboxes, locks, temp files,
-  or other session residue
-- large generated output trees, checkpoints, bulky experiment artifacts
+- anything that same git-fit policy excludes (secrets, live runtime
+  state, binaries / bulky generated outputs)
 - fresh mixed project work where the commit boundary is genuinely
   unclear
 - unrelated staged changes that predate the request and are not clearly
   part of the same theme
 
-The `*.msg` / `*.py` / `*.txt` rule overrides ordinary caution about
-untracked text files, but not secret hygiene or live-runtime safety. If a
-file with one of those extensions is left out, report the concrete
-safety reason.
+If a commit-default file (per that policy) is left out, report the
+concrete safety reason.
 
 ---
 

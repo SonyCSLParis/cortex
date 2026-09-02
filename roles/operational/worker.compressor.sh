@@ -31,12 +31,14 @@ worker_compressor_launch_claude() {
     local -a compressor_dir_args=()
     local -a compressor_ro_binds=()
     local -a compressor_rw_binds=()
+    local -a compressor_device_args=()
     [[ -n "${CLAUDE_MODEL}" ]] && claude_cmd+=(--model "${CLAUDE_MODEL}")
     if ! security_bwrap_ro_binds "${cortex_real}" claude compressor_ro_binds; then
         rm -rf "${claude_sandbox_dir}"
         return 1
     fi
     security_bwrap_dir_args compressor_dir_args
+    security_bwrap_device_args compressor_device_args
     if ! worker_bwrap_rw_binds "${cortex_real}" compressor_rw_binds; then
         rm -rf "${claude_sandbox_dir}"
         return 1
@@ -47,7 +49,7 @@ worker_compressor_launch_claude() {
         --unshare-uts \
         "${compressor_dir_args[@]}" \
         "${compressor_ro_binds[@]}" \
-        --dev-bind /dev /dev \
+        "${compressor_device_args[@]}" \
         --proc /proc \
         --tmpfs /tmp \
         "${compressor_rw_binds[@]}" \
@@ -76,6 +78,7 @@ worker_compressor_launch_codex() {
     local -a compressor_rw_binds=()
     local -a compressor_dir_args=()
     local -a compressor_ro_binds=()
+    local -a compressor_device_args=()
     local compressor_scrubber_pid=""
     compressor_codex_bin="$(command -v codex 2>/dev/null || true)"
     if [[ -z "${compressor_codex_bin}" ]]; then
@@ -86,6 +89,7 @@ worker_compressor_launch_codex() {
         return 1
     fi
     security_bwrap_dir_args compressor_dir_args
+    security_bwrap_device_args compressor_device_args
     if ! compressor_codex_home="$(prepare_codex_stage_home)"; then
         return 1
     fi
@@ -102,7 +106,7 @@ worker_compressor_launch_codex() {
         --unshare-uts \
         "${compressor_dir_args[@]}" \
         "${compressor_ro_binds[@]}" \
-        --dev-bind /dev /dev \
+        "${compressor_device_args[@]}" \
         --proc /proc \
         --tmpfs /tmp \
         "${compressor_rw_binds[@]}" \

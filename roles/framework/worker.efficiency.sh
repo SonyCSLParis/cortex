@@ -19,6 +19,7 @@ worker_efficiency_launch_codex() {
     local efficiency_codex_bin=""
     local -a efficiency_dir_args=()
     local -a efficiency_ro_binds=()
+    local -a efficiency_device_args=()
     local efficiency_scrubber_pid=""
     efficiency_codex_bin="$(command -v codex 2>/dev/null || true)"
     if [[ -z "${efficiency_codex_bin}" ]]; then
@@ -29,6 +30,7 @@ worker_efficiency_launch_codex() {
         return 1
     fi
     security_bwrap_dir_args efficiency_dir_args
+    security_bwrap_device_args efficiency_device_args
     if ! efficiency_codex_home="$(prepare_codex_stage_home)"; then
         return 1
     fi
@@ -41,7 +43,7 @@ worker_efficiency_launch_codex() {
         --unshare-uts \
         "${efficiency_dir_args[@]}" \
         "${efficiency_ro_binds[@]}" \
-        --dev-bind /dev /dev \
+        "${efficiency_device_args[@]}" \
         --proc /proc \
         --tmpfs /tmp \
         --bind "${efficiency_agent_dir}" "${efficiency_agent_dir}" \

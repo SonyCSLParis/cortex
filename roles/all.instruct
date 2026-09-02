@@ -166,14 +166,14 @@ unless a role-specific response contract requires them.
 - Never paste long logs into context by default — prefer counts,
   narrow tails, targeted greps.
 - For a quick arc overview, check the companion `.summary.md` first
-  (e.g. `agents/conductor/logbook.summary.md`). Compressor keeps summaries as compact
-  indexes over live `logbook.md` plus sibling `history/` shards. Each entry
-  includes a `FIND:` line with a ready-to-run `rg -n` invocation that jumps
-  to the full section in the source — no anchors or markers are added to
-  the source file.
+  (e.g. `agents/conductor/logbook.summary.md`). The compressor keeps summaries
+  as compact indexes over the live `logbook.md` plus sibling `history/` shards;
+  each entry keeps the source section header verbatim, so
+  `rg -nF -- '[ISO_TIMESTAMP]' <source> [<parent>/history/]` jumps to the full
+  section. The summary format itself is owned by the compressor spec.
 - For topical lookups in the full logbook, use `{#tag}` slugs across the
   live file and sibling history, e.g.
-  `rg '{#xpos-sweep}' agents/conductor/logbook.md agents/conductor/history/`.
+  `rg '{#tag}' agents/conductor/logbook.md agents/conductor/history/`.
 - Before reaching for external experiment logs to check whether
   something already happened, check Cortex's own bookkeeping first.
 
@@ -208,6 +208,11 @@ Append-only, terse. Every entry uses this format:
 [ISO_TIMESTAMP] AGENT_ID | SUBJECT: one-line description
   - optional detail
 ```
+
+Logbook entries (any `logbook.md`) use the header
+`## [ISO_TIMESTAMP] — topic {#tag}` followed by terse bullets; reuse an
+existing thread tag when continuing a thread. This is the single owner of the
+logbook header style for every role.
 
 **Tiered logging policy** (applies to all agents):
 

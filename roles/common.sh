@@ -183,6 +183,8 @@ role_resolve_state_dir() {
 
 role_run_provider_cli() {
     ROLE_CLI_USAGE_CODEX_HOME=""
+    ROLE_CLI_USAGE_CLAUDE_PROJECT_DIR=""
+    ROLE_CLI_USAGE_CLAUDE_SESSION_ID=""
     case "${AGENT_ROLE}" in
         node)
             node_run_provider_cli "$@"

@@ -18,6 +18,11 @@ node_run_provider_cli() {
         claude)
             local -a claude_cmd=(claude --print --verbose --effort "${CLAUDE_EFFORT}")
             [[ -n "${CLAUDE_MODEL}" ]] && claude_cmd+=(--model "${CLAUDE_MODEL}")
+            local node_claude_sid; node_claude_sid="$(cortex_usage_new_claude_session_id 2>/dev/null || true)"
+            if [[ -n "${node_claude_sid}" ]]; then
+                claude_cmd+=(--session-id "${node_claude_sid}")
+                ROLE_CLI_USAGE_CLAUDE_SESSION_ID="${node_claude_sid}"
+            fi
             if ! command -v bwrap >/dev/null 2>&1; then
                 printf '%s' "[cortex] claude node launch requires bubblewrap (bwrap) for read-only enforcement, but bwrap is not installed."
                 return 1
@@ -27,21 +32,26 @@ node_run_provider_cli() {
             mkdir -p "${claude_sandbox_dir}/session-env"
             local -a node_dir_args=()
             local -a node_ro_binds=()
+            local -a node_device_args=()
             if ! security_bwrap_ro_binds "${cortex_real}" claude node_ro_binds; then
                 rm -rf "${claude_sandbox_dir}"
                 return 1
             fi
             security_bwrap_dir_args node_dir_args
+            security_bwrap_device_args node_device_args
+            local -a node_usage_binds=()
+            security_claude_usage_stage_bind "${cortex_real}" node_usage_binds
             run_with_array_prefix "${timeout_ref}" bwrap \
                 --unshare-pid \
                 --unshare-ipc \
                 --unshare-uts \
                 "${node_dir_args[@]}" \
                 "${node_ro_binds[@]}" \
-                --dev-bind /dev /dev \
+                "${node_device_args[@]}" \
                 --proc /proc \
                 --tmpfs /tmp \
                 --bind "${claude_sandbox_dir}/session-env" "${HOME}/.claude/session-env" \
+                "${node_usage_binds[@]}" \
                 --chdir "${cortex_real}" \
                 "${claude_cmd[@]}" --permission-mode dontAsk "${prompt}" 2>&1 \
                 | tee "${working_file}" \

@@ -78,8 +78,8 @@ The conductor is the main entry point. For a typical request it:
    an empty conversation
 3. answers directly or delegates a bounded task to an appropriate agent (only
    on explicit request)
-5. verifies the outcome and records only the information that should survive
-6. returns a concise result to the user
+4. verifies the outcome and records only the information that should survive
+5. returns a concise result to the user
 
 Cortex remains useful with only the conductor. A larger fleet is optional:
 read-only nodes can inspect or compute, workers can perform scoped changes, and
@@ -126,13 +126,19 @@ Minimum:
 - `bash`
 - `git`
 - Python 3
-- one provider CLI that Cortex can launch, usually `claude` or `codex`
+- one provider CLI that Cortex can launch: `claude` or `codex` (no other
+  provider value is accepted)
+- `bwrap` (bubblewrap) on Linux if you run workers: `scripts/start_agent.sh`
+  refuses to start a worker without a usable sandbox backend. On macOS the
+  `auto` backend falls back to `macos-direct` when `bwrap` is missing
+  (`CORTEX_WORKER_SANDBOX_BACKEND`, resolver in `roles/sandbox.sh`).
 
 Commonly useful:
 
-- `screen` for long-lived agents
+- `screen` (default) or `tmux` for long-lived agents
 - `ssh` for remote node setups
 - optional Signal / Telegram tooling if you want messaging ingress
+  (`scripts/signal_inbox_daemon.sh`, `scripts/telegram_inbox_daemon.sh`)
 
 ### Recommended first run
 
@@ -165,6 +171,15 @@ home for optional runtime choices such as conductor/agent provider defaults,
 backup retention, relay hosts, and a public export remote. Keep credentials in
 `agents/conductor/secrets/`, never in that settings file.
 
+Messaging ingress runs as daemons: `bash scripts/signal_inbox_daemon.sh
+start|stop|restart|status|foreground` and `bash
+scripts/telegram_inbox_daemon.sh start|stop|restart|status|foreground` write
+incoming messages to `inboxes/signal` and `inboxes/telegram`. They source
+`agents/conductor/secrets/signal.env` and `agents/conductor/secrets/telegram.env`
+(`CORTEX_DEFAULT_SIGNAL_SECRETS_FILE`, `CORTEX_DEFAULT_TELEGRAM_SECRETS_FILE`).
+Outbound Telegram messages go through `scripts/telegram_send.py`, which reads
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_USER_CHAT_ID` from the environment.
+
 Safe defaults are disclosed during that chat: nothing unattended starts by
 itself; the conductor defaults to Codex and general agents to Claude unless
 configured otherwise; provider permission behavior remains unchanged unless
@@ -181,7 +196,11 @@ will automatically be maintained by the Conductor).
 
 If required local state is missing and you are in an interactive shell,
 `bash cortex.sh` will offer the same bootstrap flow automatically. Use
-`--no-init` if you want to suppress that behavior.
+`--no-init` to suppress that behavior, or `--init [--user NAME] [--env NAME]`
+to create the local user/environment/conductor state and exit without
+starting a chat. `--startup-checks` replaces the default minimal startup
+routine with the full one (log/tasks review, inbox drain, worker liveness,
+next-step suggestions).
 
 Until the checkout has at least one project under `projects/`, the conductor
 also follows `setup.instruct` on startup to guide the first-project setup.
@@ -207,8 +226,10 @@ belong in the private environment layer, not in framework files.
 
 ## Provider and Session Options
 
-By default, `cortex.sh` starts a fresh conductor session with Codex and keeps
-the launcher view in normal terminal scrollback (`--no-alt-screen`). You can
+By default, `cortex.sh` starts a fresh conductor session with Codex. Codex
+launches always run inline so the launcher view stays in normal terminal
+scrollback; `--no-alt-screen` is a Codex-only explicit compatibility flag for
+that behavior and is rejected together with `--provider claude`. You can
 override the provider explicitly:
 
 ```bash
@@ -236,6 +257,17 @@ Anything else is rejected with the accepted-alias list. Omit `--model` to fall
 back to the provider's own default. For onboarding another CLI model, just ask
 it to "Read the CONDUCTOR.md and follow it." and then ask it to extend the
 framework to that very model.
+
+Instead of a specific model, `--tier weak|medium|strong` (aliases `low` →
+`weak`, `high` → `strong`; env default `CORTEX_CONDUCTOR_TIER`) applies a
+shared model/effort tier for the chosen provider. The tier → model/effort
+tuples are defined in `config/cortex_defaults.sh`
+(`CORTEX_DEFAULT_TIER_<TIER>_{CODEX,CLAUDE}_MODEL`,
+`CORTEX_DEFAULT_TIER_<TIER>_CODEX_REASONING`,
+`CORTEX_DEFAULT_TIER_<TIER>_CLAUDE_EFFORT`). An explicit `--model` still wins,
+and `--tier` combines with `--resume`. Worker roles declare their default tier
+in their `.meta` file via `META_tier`; `roles/watch.meta` does the same for
+watch.
 
 To resume the most recent conductor chat with its existing model/context, use:
 
@@ -322,8 +354,12 @@ If a worker should fall back to another provider after quota/auth failures,
 launch it with `FALLBACK_PROVIDER=claude` (or `codex`) and optionally
 `PROVIDER_FAILURE_COOLDOWN_SECONDS=<seconds>`.
 
-The screen helper is idempotent: if the matching screen already exists, it
-prints the current status/heartbeat age instead of starting a duplicate.
+`start_agent_screen.sh` uses `screen` by default; pass `--backend tmux` or
+set `CORTEX_SESSION_BACKEND` (default `CORTEX_DEFAULT_SESSION_BACKEND` in
+`config/cortex_defaults.sh`) to use tmux instead. The backend helpers live in
+`scripts/session_backend.sh`. The helper is idempotent: if the matching
+session already exists, it prints the current status/heartbeat age instead of
+starting a duplicate.
 Routine startup registration is local-only by default; set
 `AGENT_REGISTER_NOTIFY=1` when a launch should explicitly notify the
 conductor inbox.
@@ -331,29 +367,61 @@ conductor inbox.
 Start the watch agent:
 
 ```bash
-bash scripts/start_agent_screen.sh --role watch --wake-seconds "${CORTEX_DEFAULT_WATCH_INTERVAL_SECONDS}"
+bash scripts/start_agent_screen.sh --role watch
+bash scripts/start_agent_screen.sh --role watch --wake-seconds N
 ```
 
-`--wake-seconds N` is role-aware in the screen helper: for `worker` it sets the
-periodic worker-check cadence via `WORKER_REVIEW_INTERVAL`, and for `watch`
-it maps to the watch interval (`CORTEX_DEFAULT_WATCH_INTERVAL_SECONDS` in
-`config/cortex_defaults.sh`). It is rejected for `node` starts.
+`--wake-seconds N` is role-aware in the session helper: for `worker` it sets
+the periodic worker-check cadence via `WORKER_REVIEW_INTERVAL`, and for
+`watch` it is passed through as `scripts/watch.sh --interval N`. When omitted,
+the watch interval defaults to `META_wake_interval` in `roles/watch.meta`
+(with `CORTEX_DEFAULT_WATCH_INTERVAL_SECONDS` from `config/cortex_defaults.sh`
+as the last fallback). It is rejected for `node` starts.
 
-For long-lived agents, run them in `screen` and keep output visible inside the
-session. The framework rules assume you can reconnect and inspect live output.
+For long-lived agents, run them in `screen` or `tmux` and keep output visible
+inside the session. The framework rules assume you can reconnect and inspect
+live output.
 
 Run framework validators:
 
 ```bash
 bash scripts/cortex_doctor.sh
 bash scripts/cortex_doctor.sh --check tasks
+bash scripts/cortex_doctor.sh --list-checks
 ```
 
 `cortex_doctor.sh` is a deterministic drift check for task-board layout,
 metadata-driven worker docs/ownership, public/private sync boundaries, sandbox
 exposure, commit-worker git guardrails, and local repository hygiene. It exits
 non-zero when a check needs operator attention, so it is suitable before
-framework commits or public-sync work.
+framework commits or public-sync work. `--list-checks` prints the available
+check names.
+
+Other deterministic operator views (no LLM calls):
+
+- `scripts/cortex_ops_snapshot.sh`: the critical/warnings/active/quiet
+  snapshot that `cortex.sh` prints at conductor start
+- `scripts/agent_roster.sh [--color|--no-color]`: the startup agent roster as
+  a standalone report
+- `scripts/task_board_report.sh [--stale|--count]`: stale/overdue task rows
+  across all boards (`--stale` lists them, `--count` prints the number)
+- `scripts/usage_report.py [--since 24h|7d] [--quiet-line] [--ledger PATH]`:
+  provider-usage summary from the user ledger; `scripts/usage_lib.sh` holds
+  the shared accounting helpers the launchers use to write that ledger.
+  Claude runs are attributed by identity: every launch pins a `--session-id`
+  and only that transcript (plus its subagent transcripts) is summed, so
+  concurrent sessions in the same checkout do not bleed into each other;
+  sandboxed workers/nodes additionally write their transcript into a per-run
+  stage so the read-only `~/.claude` mount does not lose it
+- `scripts/research_dashboard.sh [--watch [N]]`: read-only status board for
+  the research cluster
+- `scripts/periodics_check.sh [status|heal]`: manifest and health of the
+  scheduled/continuous jobs; `heal` restarts down jobs that are safe to
+  auto-start (`cortex.sh` runs `heal` at chat entry, watch runs it on every
+  wake)
+- `scripts/prompt_log_sync_daemon.sh --cwd <repo> --session-dir <dir>
+  [--interval N] [--parent-pid PID]`: per-session conductor prompt-log sync
+  loop, started by `cortex.sh`
 
 ## Example Workflows
 
@@ -365,7 +433,8 @@ and return days later to a project record that explains what ran and why. Cortex
 keeps environment-specific knowledge about the available machines, their
 capabilities, and their setup, so it can place work without rebuilding that
 context each time. While a run is active, the watch agent can monitor it and
-notify you via Signal or Telegram about meaningful failures or changes.
+notify you via Signal or Telegram (the inbox daemons and
+`scripts/telegram_send.py` above) about meaningful failures or changes.
 Configurations, output locations, results, and durable conclusions stay with
 the project, making new work easier to compare against earlier runs without
 relying on chat history alone.
@@ -408,7 +477,7 @@ The conductor is the human-facing control plane.
 - owns cross-project operational bookkeeping
 - reads context and updates durable memory
 - starts worker agents, like the commit or backup agent
-- reads agent reports (from it's inbox).
+- reads agent reports (from its inbox)
 - sends bounded work to other agents (only on explicit request)
 - receives and summarizes their responses
 
@@ -537,6 +606,17 @@ see `roles/agent_building.md` for the bundle/layout spec that any new agent
 fleet should follow, and `roles/research.instruct` for this cluster's codified
 workflow.
 
+Research workers run under a "broad read, fenced write" sandbox implemented
+by `roles/research/research.sh` on top of the shared `roles/sandbox.sh`: the
+read base is `CORTEX_RESEARCH_RO_BASE` (default `/`, mounted read-only), the
+secret/credential paths listed in `CORTEX_RESEARCH_RO_MASK` are masked back
+out of it, and writes stay fenced to the agent directory plus the active
+project tree (`CORTEX_RESEARCH_PROJECT`). Both variables are defined in
+`config/cortex_defaults.sh` and can be overridden per host in
+`environments/<env>/settings.env`. `templates/research/` is the project
+scaffold (mission, hypotheses, experiments, results, claims, open questions)
+to copy into `projects/<project>/research/` before starting a cluster.
+
 You do not need every research specialist on every mission. Launch only the
 workers that match the active cycle.
 
@@ -547,6 +627,8 @@ You do not need the full tree memorized. The main surfaces are:
 - `cortex.sh`: chat entry point for the conductor
 - `scripts/`: runtime and helper scripts
 - `roles/`: agent instructions and named worker role definitions
+- `config/`: framework defaults (`config/cortex_defaults.sh`)
+- `templates/`: project scaffolds to copy, currently `templates/research/`
 - `users/`: user-specific durable state, including `users/<user>/usage/usage.tsv`
   and user preferences/reminders
 - `agents/conductor/sessions/`: per-window conductor runtime state, including
@@ -618,8 +700,12 @@ when the running agents reflect the real workload.
 
 - [PROTOCOL.md](PROTOCOL.md): wire-level contract, message envelopes, and agent
   lifecycle
+- [CONDUCTOR.md](CONDUCTOR.md): the context the conductor loads at startup
+- [SECURITY.md](SECURITY.md): security policy and vulnerability reporting
 - [roles/conductor.instruct](roles/conductor.instruct): how the conductor is
   supposed to behave
+- [roles/agent_building.md](roles/agent_building.md): bundle/layout spec for
+  new agent fleets
 - [roles/worker.instruct](roles/worker.instruct): generic worker rules
 - [roles/watch.instruct](roles/watch.instruct): watch-agent behavior
 - [BASH_RECIPES.md](BASH_RECIPES.md): reusable operator snippets

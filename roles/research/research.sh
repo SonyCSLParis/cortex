@@ -63,6 +63,11 @@ worker_team_research_append_ssh_binds() {
     worker_append_safe_ssh_binds "${ssh_binds_ref}"
 }
 
+worker_team_research_append_bwrap_device_args() {
+    local device_args_ref="$1"
+    security_bwrap_append_nvidia_device_binds "${device_args_ref}"
+}
+
 worker_research_lead_id() {
     worker_ids_for_team_role research lead | head -n 1
 }

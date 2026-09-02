@@ -66,15 +66,20 @@ cortex_usage_price_pair() {
         codex:gpt-5|openai:gpt-5) printf '1.25 10' ;;
         codex:gpt-5-mini|openai:gpt-5-mini) printf '0.25 2' ;;
         codex:gpt-5-nano|openai:gpt-5-nano) printf '0.05 0.4' ;;
-        claude:claude-fable-5|anthropic:claude-fable-5) printf '10 50' ;;
+        # Claude ids are prefix-matched so dated snapshots (e.g. -20251001)
+        # resolve; keep the more specific id above its prefix (fable-5-1 before fable-5).
+        claude:claude-fable-5-1*|anthropic:claude-fable-5-1*) printf '10 50' ;;
+        claude:claude-mythos-5-1*|anthropic:claude-mythos-5-1*) printf '10 50' ;;
+        claude:claude-fable-5*|anthropic:claude-fable-5*) printf '10 50' ;;
+        claude:claude-opus-5*|anthropic:claude-opus-5*) printf '5 25' ;;
         claude:claude-opus-4-8*|anthropic:claude-opus-4-8*) printf '5 25' ;;
-        claude:claude-opus-4-7|anthropic:claude-opus-4-7) printf '5 25' ;;
-        claude:claude-opus-4-6|anthropic:claude-opus-4-6) printf '5 25' ;;
-        claude:claude-opus-4-5|anthropic:claude-opus-4-5) printf '5 25' ;;
-        claude:claude-sonnet-4-6|anthropic:claude-sonnet-4-6) printf '3 15' ;;
-        claude:claude-sonnet-5|anthropic:claude-sonnet-5) printf '3 15' ;;
-        claude:claude-sonnet-4-5|anthropic:claude-sonnet-4-5) printf '3 15' ;;
-        claude:claude-haiku-4-5|anthropic:claude-haiku-4-5) printf '1 5' ;;
+        claude:claude-opus-4-7*|anthropic:claude-opus-4-7*) printf '5 25' ;;
+        claude:claude-opus-4-6*|anthropic:claude-opus-4-6*) printf '5 25' ;;
+        claude:claude-opus-4-5*|anthropic:claude-opus-4-5*) printf '5 25' ;;
+        claude:claude-sonnet-5*|anthropic:claude-sonnet-5*) printf '2 10' ;;
+        claude:claude-sonnet-4-6*|anthropic:claude-sonnet-4-6*) printf '3 15' ;;
+        claude:claude-sonnet-4-5*|anthropic:claude-sonnet-4-5*) printf '3 15' ;;
+        claude:claude-haiku-4-5*|anthropic:claude-haiku-4-5*) printf '1 5' ;;
         *) return 1 ;;
     esac
 }
@@ -320,8 +325,32 @@ for model, (i, cached, o, n) in per_model.items():
 PY
 }
 
+# Fresh UUID for pinning a Claude CLI run via --session-id, so its transcript
+# is <projects dir>/<uuid>.jsonl (+ <uuid>/subagents/) and usage can be matched
+# by identity instead of cwd + time window.
+cortex_usage_new_claude_session_id() {
+    if command -v uuidgen >/dev/null 2>&1; then
+        uuidgen | tr '[:upper:]' '[:lower:]'
+    elif [[ -r /proc/sys/kernel/random/uuid ]]; then
+        cat /proc/sys/kernel/random/uuid
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -c 'import uuid; print(uuid.uuid4())'
+    else
+        return 1
+    fi
+}
+
 cortex_usage_claude_project_dir() {
     local cwd="$1"
+    # Per-invocation override: sandboxed Claude runs bind a private, writable
+    # stage over ~/.claude/projects/<slug> so the CLI can write its transcript
+    # and only this run's usage is matched (no bleed from concurrent sessions
+    # sharing the same cwd). Set by roles/sandbox.sh via
+    # ROLE_CLI_USAGE_CLAUDE_PROJECT_DIR and forwarded by scripts/start_agent.sh.
+    if [[ -n "${CORTEX_USAGE_CLAUDE_PROJECT_DIR:-}" ]]; then
+        printf '%s\n' "${CORTEX_USAGE_CLAUDE_PROJECT_DIR}"
+        return 0
+    fi
     local home="${HOME:-}"
     [[ -n "${home}" && -n "${cwd}" ]] || return 1
     local encoded
@@ -342,6 +371,7 @@ cortex_usage_claude_session_match() {
     CORTEX_CLAUDE_DIR="${dir}" \
     CORTEX_CLAUDE_START="${start_epoch}" \
     CORTEX_CLAUDE_END="${end_epoch}" \
+    CORTEX_CLAUDE_SESSION_ID="${CORTEX_USAGE_CLAUDE_SESSION_ID:-}" \
     python3 - <<'PY'
 import json, os, glob, datetime
 dir_path = os.environ["CORTEX_CLAUDE_DIR"]
@@ -369,7 +399,19 @@ def parse_ts(s):
     except Exception:
         return None
 per_model = {}
-for path in glob.glob(os.path.join(dir_path, "*.jsonl")):
+# Top-level session transcripts plus Agent-tool subagent transcripts, which
+# Claude Code writes under <session>/subagents/agent-*.jsonl and does not
+# mirror into the parent file. Dedup below is keyed on (requestId, message.id).
+session_id = os.environ.get("CORTEX_CLAUDE_SESSION_ID", "").strip()
+if session_id:
+    # Pinned run (--session-id): only this session's transcript and its
+    # subagents. Concurrent sessions in the same cwd are ignored.
+    paths = [os.path.join(dir_path, session_id + ".jsonl")] + \
+        glob.glob(os.path.join(dir_path, session_id, "subagents", "*.jsonl"))
+else:
+    paths = glob.glob(os.path.join(dir_path, "*.jsonl")) + \
+        glob.glob(os.path.join(dir_path, "*", "subagents", "*.jsonl"))
+for path in paths:
     try:
         st = os.stat(path)
     except OSError:
@@ -416,16 +458,28 @@ for model, (i, cc, cr, o, n) in per_model.items():
 PY
 }
 
+# Cache-read price as a fraction of the input price. Default 0.1; Fable 5.1 /
+# Mythos 5.1 bill cache reads at $0.25/MTok on a $10 input price.
+cortex_usage_cache_read_multiplier() {
+    local key
+    key="$(printf '%s:%s' "$1" "$2" | tr '[:upper:]' '[:lower:]')"
+    case "${key}" in
+        claude:claude-fable-5-1*|anthropic:claude-fable-5-1*|claude:claude-mythos-5-1*|anthropic:claude-mythos-5-1*) printf '0.025' ;;
+        *) printf '0.1' ;;
+    esac
+}
+
 cortex_usage_estimate_cache_split() {
     local provider="$1" model="$2" input_n="$3" cc_n="$4" cr_n="$5" out_n="$6"
-    local prices input_price output_price
+    local prices input_price output_price cr_mult
     prices="$(cortex_usage_price_pair "${provider}" "${model}" 2>/dev/null || true)"
     [[ -n "${prices}" ]] || return 1
     read -r input_price output_price <<< "${prices}"
-    awk -v in_n="${input_n:-0}" -v cc_n="${cc_n:-0}" -v cr_n="${cr_n:-0}" \
+    cr_mult="$(cortex_usage_cache_read_multiplier "${provider}" "${model}")"
+    awk -v in_n="${input_n:-0}" -v cc_n="${cc_n:-0}" -v cr_n="${cr_n:-0}" -v cr_mult="${cr_mult}" \
         -v out_n="${out_n:-0}" -v in_price="${input_price}" -v out_price="${output_price}" \
         'BEGIN {
-            cost = ((in_n + cc_n * 1.25 + cr_n * 0.1) * in_price + out_n * out_price) / 1000000
+            cost = ((in_n + cc_n * 1.25 + cr_n * cr_mult) * in_price + out_n * out_price) / 1000000
             printf "%.6f", cost
         }'
 }

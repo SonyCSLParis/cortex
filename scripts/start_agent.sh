@@ -1249,9 +1249,17 @@ run_agent_cli_single_provider() {
     fi
     # Stream output to working file and terminal (stderr → screen/log) in real-time
     started_epoch="$(date -u +%s)"
-    role_output="$(role_run_provider_cli "${prompt}" "${working_file}" "${tmp_out}" "${tmp_last}" timeout_cmd)"
+    # Run in the current shell (stdout to a file, not a command substitution)
+    # so the launch hooks' ROLE_CLI_USAGE_* stage paths survive for usage
+    # attribution below; a subshell would drop them.
+    local role_out_file; role_out_file="$(mktemp)"
+    role_run_provider_cli "${prompt}" "${working_file}" "${tmp_out}" "${tmp_last}" timeout_cmd > "${role_out_file}"
     exit_code=$?
+    role_output="$(cat "${role_out_file}" 2>/dev/null || true)"
+    rm -f "${role_out_file}"
     usage_codex_home="${ROLE_CLI_USAGE_CODEX_HOME:-}"
+    local usage_claude_dir="${ROLE_CLI_USAGE_CLAUDE_PROJECT_DIR:-}"
+    local usage_claude_sid="${ROLE_CLI_USAGE_CLAUDE_SESSION_ID:-}"
     ended_epoch="$(date -u +%s)"
     stop_work_heartbeat "${hb_pid}"
     local out; out="$(cat "${tmp_out}")"
@@ -1269,11 +1277,20 @@ run_agent_cli_single_provider() {
                 "${AGENT_PROVIDER}" "${usage_model}" "start_agent:${AGENT_ID}" \
                 "${started_epoch}" "${ended_epoch}" "${CORTEX_DIR}" || true
         cleanup_codex_stage_home "${usage_codex_home}"
+    elif [[ -n "${usage_claude_dir}" ]]; then
+        CORTEX_USAGE_CLAUDE_PROJECT_DIR="${usage_claude_dir}" \
+        CORTEX_USAGE_CLAUDE_SESSION_ID="${usage_claude_sid}" \
+            cortex_usage_record_from_file \
+                "${tmp_out}" "${AGENT_ID}" "${AGENT_ROLE}" "${AGENT_RUN_MODE}" \
+                "${AGENT_PROVIDER}" "${usage_model}" "start_agent:${AGENT_ID}" \
+                "${started_epoch}" "${ended_epoch}" "${CORTEX_DIR}" || true
+        rm -rf "${usage_claude_dir}"
     else
-        cortex_usage_record_from_file \
-            "${tmp_out}" "${AGENT_ID}" "${AGENT_ROLE}" "${AGENT_RUN_MODE}" \
-            "${AGENT_PROVIDER}" "${usage_model}" "start_agent:${AGENT_ID}" \
-            "${started_epoch}" "${ended_epoch}" "${CORTEX_DIR}" || true
+        CORTEX_USAGE_CLAUDE_SESSION_ID="${usage_claude_sid}" \
+            cortex_usage_record_from_file \
+                "${tmp_out}" "${AGENT_ID}" "${AGENT_ROLE}" "${AGENT_RUN_MODE}" \
+                "${AGENT_PROVIDER}" "${usage_model}" "start_agent:${AGENT_ID}" \
+                "${started_epoch}" "${ended_epoch}" "${CORTEX_DIR}" || true
     fi
     if [[ "${AGENT_PROVIDER}" == "codex" && -s "${tmp_last}" ]]; then
         out="$(cat "${tmp_last}")"

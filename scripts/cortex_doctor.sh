@@ -226,10 +226,12 @@ check_public_sync() {
 }
 
 check_sandbox() {
-    local matches
-    matches="$(rg -n -- '--ro-bind / /' scripts/start_agent.sh || true)"
+    local root_matches device_matches matches
+    root_matches="$(rg -n -- '--ro-bind / /' scripts/start_agent.sh || true)"
+    device_matches="$(rg -n -- '--dev-bind /dev /dev' roles || true)"
+    matches="$(printf '%s\n%s\n' "${root_matches}" "${device_matches}" | sed '/^$/d')"
     if [[ -n "${matches}" ]]; then
-        emit_result sandbox fail "provider sandbox still exposes host root read-only in scripts/start_agent.sh" "$(printf '%s\n' "${matches}" | join_evidence)"
+        emit_result sandbox fail "provider sandbox still exposes host root or the full host device tree" "$(printf '%s\n' "${matches}" | join_evidence)"
     else
         emit_result sandbox ok "no broad --ro-bind / / provider sandbox binds found"
     fi

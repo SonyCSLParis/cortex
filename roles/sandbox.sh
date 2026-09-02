@@ -49,6 +49,25 @@ security_bwrap_ro_binds() {
     fi
 }
 
+# Claude usage stage: bind a fresh writable directory over the CLI's
+# per-project transcript dir (~/.claude/projects/<slug of cwd>) inside an
+# otherwise read-only ~/.claude, so `claude --print` can persist its session
+# JSONL and usage_lib can attribute this run's tokens. Appends the bind to the
+# named array and exports the stage path in ROLE_CLI_USAGE_CLAUDE_PROJECT_DIR;
+# the launcher (scripts/start_agent.sh) removes the stage after recording usage.
+security_claude_usage_stage_bind() {
+    local cwd_real="$1" bind_args_ref="$2"
+    local slug host_dir stage_dir
+    [[ -n "${HOME:-}" && -n "${cwd_real}" ]] || return 0
+    slug="$(printf '%s' "${cwd_real}" | sed 's,/,-,g')"
+    host_dir="${HOME}/.claude/projects/${slug}"
+    mkdir -p "${host_dir}" 2>/dev/null || return 0
+    stage_dir="$(mktemp -d 2>/dev/null)" || return 0
+    named_array_append "${bind_args_ref}" --bind "${stage_dir}" "${host_dir}"
+    ROLE_CLI_USAGE_CLAUDE_PROJECT_DIR="${stage_dir}"
+    return 0
+}
+
 security_bwrap_dir_args() {
     local dir_args_ref="$1"
     named_array_clear "${dir_args_ref}"
@@ -62,6 +81,29 @@ security_bwrap_dir_args() {
         --dir "${HOME}/.local/share" \
         --dir "${HOME}/.local/share/claude" \
         --dir "${HOME}/.claude"
+}
+
+# Start from bwrap's minimal devtmpfs. Selected accelerator character devices
+# may be appended by a role hook; never bind the host's complete /dev tree.
+security_bwrap_device_args() {
+    local device_args_ref="$1"
+    named_array_clear "${device_args_ref}"
+    named_array_append "${device_args_ref}" --dev /dev
+}
+
+security_bwrap_append_nvidia_device_binds() {
+    local device_args_ref="$1"
+    local device index
+
+    for device in /dev/nvidiactl /dev/nvidia-uvm /dev/nvidia-uvm-tools /dev/nvidia-modeset; do
+        [[ -c "${device}" ]] || continue
+        named_array_append "${device_args_ref}" --dev-bind "${device}" "${device}"
+    done
+    for index in {0..31}; do
+        device="/dev/nvidia${index}"
+        [[ -c "${device}" ]] || continue
+        named_array_append "${device_args_ref}" --dev-bind "${device}" "${device}"
+    done
 }
 
 claude_ipc_binds() {

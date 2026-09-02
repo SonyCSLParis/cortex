@@ -618,6 +618,7 @@ run_conductor_provider() {
     local -a command=("$@")
     local usage_file rc=0 model="${MODEL:-provider-default}" started_epoch ended_epoch
     local usage_codex_home=""
+    local usage_claude_sid="${CONDUCTOR_CLAUDE_SESSION_ID:-}"
     usage_file="$(mktemp 2>/dev/null || echo "/tmp/cortex_conductor_usage_$$_${RANDOM}")"
 
     started_epoch="$(date -u +%s)"
@@ -638,6 +639,12 @@ run_conductor_provider() {
     fi
     ended_epoch="$(date -u +%s)"
 
+    # A conductor window outlives edits to the usage library — new model
+    # prices routinely land mid-session. Re-source before recording so the
+    # exit-time estimate uses the current price table rather than the copy
+    # sourced at launch, which otherwise writes silent unknown_price rows.
+    source "${CORTEX_DIR}/scripts/usage_lib.sh" 2>/dev/null || true
+
     if [[ -s "${usage_file}" ]]; then
         if [[ "${PROVIDER}" == "codex" ]]; then
             usage_codex_home="${CODEX_HOME:-${HOME}/.codex}"
@@ -647,10 +654,11 @@ run_conductor_provider() {
                     "${PROVIDER}" "${model}" "cortex:conductor" \
                     "${started_epoch}" "${ended_epoch}" "${CORTEX_DIR}" || true
         else
-            cortex_usage_record_from_file \
-                "${usage_file}" "conductor" "conductor" "interactive" \
-                "${PROVIDER}" "${model}" "cortex:conductor" \
-                "${started_epoch}" "${ended_epoch}" "${CORTEX_DIR}" || true
+            CORTEX_USAGE_CLAUDE_SESSION_ID="${usage_claude_sid}" \
+                cortex_usage_record_from_file \
+                    "${usage_file}" "conductor" "conductor" "interactive" \
+                    "${PROVIDER}" "${model}" "cortex:conductor" \
+                    "${started_epoch}" "${ended_epoch}" "${CORTEX_DIR}" || true
         fi
     fi
     rm -f "${usage_file}"
@@ -1198,6 +1206,14 @@ if (( RESUME_LAST )); then
             ;;
     esac
 else
+    # Pin a fresh Claude session id so usage attribution matches this window's
+    # transcript by identity rather than cwd + time window (other conductor
+    # windows and agents share the same cwd). --continue cannot be pinned.
+    CONDUCTOR_CLAUDE_SESSION_ID=""
+    if [[ "${PROVIDER}" == "claude" ]]; then
+        CONDUCTOR_CLAUDE_SESSION_ID="$(cortex_usage_new_claude_session_id 2>/dev/null || true)"
+        [[ -z "${CONDUCTOR_CLAUDE_SESSION_ID}" ]] || LAUNCH_ARGS+=(--session-id "${CONDUCTOR_CLAUDE_SESSION_ID}")
+    fi
     run_conductor_provider "${LAUNCH_ARGS[@]}" "$(cortex_conductor_prompt)"
 fi
 exit $?

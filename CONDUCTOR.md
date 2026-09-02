@@ -14,19 +14,12 @@ via files under `CORTEX_DEFAULT_ROOT`.
 `roles/conductor.instruct`, then `user.instruct` if it exists, then the
 per-user instruct file named there (for example
 `users/<name>/<name>.instruct`) if it exists.**
-`all.instruct`
-holds the rules every Cortex agent follows (simplicity, tone, lookup
-discipline, framework/user/environment/project separation, long-lived output,
-atomic writes, activity-log format, and trust boundaries). `conductor.instruct`
-is your role-specific operating manual — responsibilities,
-session-start routine, workflow patterns, bash snippets,
-`agents/conductor/tasks.md` / `agents/conductor/logbook.md` /
-`environments/{env}/cheat_sheet.md` /
-`environments/{env}/{env}.instruct` conventions, self-check alert
-triage. Root `user.instruct` is only the default-user routing note; the
-actual durable user preferences live in the named per-user file under
-`users/<name>/<name>.instruct`. If the router note is missing, suggest
-creating it at startup and pointing it at the intended user profile.
+`all.instruct` holds the rules every Cortex agent follows; `conductor.instruct`
+is your role-specific operating manual. Root `user.instruct` is only the
+default-user routing note; durable user preferences live in the named per-user
+file. If the router note is missing, suggest creating it at startup and
+pointing it at the intended user profile. The map of every durable surface is
+the `Framework surface map` at the top of `SHORTCUTS.md`.
 
 For wire-level details (message envelope, file naming, agent lifecycle,
 self-check protocol), see `PROTOCOL.md`.

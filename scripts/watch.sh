@@ -652,12 +652,15 @@ run_provider() {
     local output=""
     local last_msg_file=""
     local usage_file=""
-    local started_epoch ended_epoch
+    local started_epoch ended_epoch claude_sid=""
     usage_file="$(mktemp 2>/dev/null || echo "/tmp/cortex_watch_usage_$$_${RANDOM}")"
     started_epoch="$(date -u +%s)"
     case "${WATCH_PROVIDER}" in
         claude)
-            run_with_watch_timeout claude --print --verbose --effort "${CLAUDE_EFFORT}" --model "${CLAUDE_MODEL}" --dangerously-skip-permissions "${prompt}" </dev/null >"${usage_file}" 2>&1 \
+            local -a claude_sid_args=()
+            claude_sid="$(cortex_usage_new_claude_session_id 2>/dev/null || true)"
+            [[ -z "${claude_sid}" ]] || claude_sid_args=(--session-id "${claude_sid}")
+            run_with_watch_timeout claude --print --verbose --effort "${CLAUDE_EFFORT}" --model "${CLAUDE_MODEL}" "${claude_sid_args[@]}" --dangerously-skip-permissions "${prompt}" </dev/null >"${usage_file}" 2>&1 \
                 || exit_code=$?
             output="$(cat "${usage_file}" 2>/dev/null || true)"
             ;;
@@ -684,6 +687,7 @@ run_provider() {
     if [[ "${WATCH_PROVIDER}" == "claude" ]]; then
         usage_model="${CLAUDE_MODEL:-provider-default}"
     fi
+    CORTEX_USAGE_CLAUDE_SESSION_ID="${claude_sid}" \
     cortex_usage_record_from_file \
         "${usage_file}" "watch" "watch" "wake" \
         "${WATCH_PROVIDER}" "${usage_model}" "watch:wake" \

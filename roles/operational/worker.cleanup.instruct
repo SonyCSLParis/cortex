@@ -60,10 +60,10 @@ Good cleanup candidates are narrow and boring:
 - stale bookkeeping-only text clusters
 - summary/history refreshes that are old, coherent, and not mixed with
   live edits
-- untracked `*.msg`, `*.py`, and `*.txt` files inside the Cortex repo
-  that are not secrets and are not active live coordination files; these
-  should be surfaced as track-and-commit candidates rather than ignored
-  as generic untracked residue
+- untracked files inside the Cortex repo that the git-fit policy in
+  `SHORTCUTS.md` ("Handling large project files in git") marks
+  commit-default; surface these as track-and-commit candidates rather
+  than ignoring them as generic untracked residue
 
 Bad cleanup candidates that should be deferred:
 

@@ -64,8 +64,10 @@ reference when deciding which file to read or write. Surfaces marked
 - **Wire spec and templates**: `PROTOCOL.md`; `roles/node.instruct` /
   `roles/worker.instruct` / `roles/self_check.instruct` /
   `roles/watch.instruct` / `roles/research.instruct`;
-  `roles/{operational,framework,loop,research}/worker.<name>.instruct`
-  (named-worker overrides appended after `worker.instruct`).
+  `roles/<category>/<category>.instruct` (category-level addendum,
+  auto-injected when present) and
+  `roles/<category>/worker.<name>.instruct` (named-worker overrides), both
+  appended after `worker.instruct`.
 - **Conductor durable memory**: `agents/conductor/tasks.md` (cross-project /
   operational), `agents/conductor/logbook.md` (experiment / training /
   data-work narrative + numeric results of record),
@@ -93,8 +95,9 @@ reference when deciding which file to read or write. Surfaces marked
   actions — routine wakes stay in `agents/watch/log.md`).
 - **Compressed history**: `agents/conductor/logbook.summary.md` and
   `projects/*/logbook.summary.md` / managed `agents/*/logbook.summary.md`
-  are compressor-maintained arc summaries with `FIND:` lines pointing into
-  live + `history/` shards.
+  are compressor-maintained arc summaries whose entries keep the source
+  section headers verbatim (look up with `rg -nF -- '[ISO_TIMESTAMP]'` across
+  live + `history/` shards).
 - **Recipes and snippets**: this file (`SHORTCUTS.md`) for framework and
   cross-project recipes; `BASH_RECIPES.md` for bash snippets (status table,
   send COMMAND, Signal) read on demand.
