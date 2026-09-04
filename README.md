@@ -36,9 +36,9 @@ Cortex helps a person organize and operate their own ongoing work with agents.
   an agent or conversation. Decisions, tasks, experiments, references, and
   results survive individual chats.
 - **One human-facing conductor:** you do not need to design an agent graph before
-  Cortex becomes useful. Start with one chat and add specialist agents only
-  when the work benefits from them. Several concurrent conductor sessions allow
-  for parallel work using the shared persistent context.
+  Cortex becomes useful. Start with one conductor chat and add specialist agents only
+  when the work benefits from them. Several concurrent conductor sessions are
+  possible and allow for parallel work using the shared persistent context.
 - **Files as the source of truth:** normal text files keep the system
   inspectable, versionable, scriptable, backup-friendly, and portable.
 - **Clear context boundaries:** framework, user, environment, and project facts
