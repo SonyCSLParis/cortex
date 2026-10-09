@@ -81,6 +81,12 @@ session will not care, don't write it down.
   speculative ideas in the current user's home under `users/` (see
   root `user.instruct` for the default user, then use
   `users/{user}/...`).
+- When a self-contained request produces reusable code, analysis, data, or
+  artifacts and no existing Cortex project clearly owns it, automatically
+  create a suitably named project under `projects/` and keep the work's code,
+  inputs or references, outputs, and durable context there. Ask the user only
+  when project ownership or naming is genuinely ambiguous; do not place such
+  work in an ad hoc top-level folder merely because no project was named.
 - When choosing a host for new work, consult the environment cheat sheet's
   host inventory and ownership / scheduling-priority table and respect its
   default priorities unless the user overrides them.
@@ -242,6 +248,11 @@ promote it to a spec edit — don't just apply it in the moment.
 Signals: universal quantifiers ("always", "never", "whenever"),
 generalized corrections ("from now on", "every time"), preferences
 about a class of artefacts or behaviours.
+
+Universal wording widens duration or repetition, not scope. Preserve the
+narrow context of the object it modifies: for example, "always do X for this
+table" remains a rule about that table and its owning project, not a user-wide
+or framework-wide rule.
 
 When you see one:
 1. Apply immediately.
