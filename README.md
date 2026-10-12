@@ -32,6 +32,11 @@ Cortex helps a person organize and operate their own ongoing work with agents.
 
 ## Why Cortex
 
+- **Transparent, flexible agent roles:** agents are programmed through cascaded,
+  human-readable instruction files—from shared rules to role definitions and
+  specialist instructions, with user, environment, and project context layered
+  in. Their behavior can be inspected, adapted, and versioned by editing
+  ordinary text files.
 - **Project-centered continuity:** the durable object is the project, not just
   an agent or conversation. Decisions, tasks, experiments, references, and
   results survive individual chats.
@@ -85,7 +90,7 @@ The conductor is the main entry point. For a typical request it:
 Cortex remains useful with only the conductor. A larger fleet is optional:
 read-only nodes can inspect or compute, workers can perform scoped changes, and
 the watch agent can monitor unattended work or messaging channels. Framework
-workers are available for auditing and advancing the framework itself. 
+workers are available for auditing and advancing the framework itself.
 
 The workspace separates four kinds of context:
 
@@ -425,6 +430,20 @@ Other deterministic operator views (no LLM calls):
   loop, started by `cortex.sh`
 
 ## Example Workflows
+
+### Continue Work From Another Conductor Chat
+
+Work started in one conductor chat can be continued in a new chat by saying,
+“lets take over the conductor chat where we worked on ...” and naming the
+project or topic. The new conductor can consult shared project tasks,
+logbooks, instructions, and shortcuts to recover what was done, what remains
+open, and how to continue. A saved session transcript, when available, can
+supply conversational details beyond those durable records.
+
+This allows a project to continue across chats without repeating its setup,
+decisions, and results from scratch. Continuity comes from Cortex’s shared
+records; opening a new chat does not automatically restore the other provider
+session’s full conversation or stop that session.
 
 ### Research (e.g., Deep Learning)
 

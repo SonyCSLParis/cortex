@@ -464,6 +464,34 @@ superseding task — update its row in the same step, before the logbook
 write, archive move, or chat answer is finished. Closing is never a
 separate follow-up. The `Conductor bookkeeping` shortcut lists the pairings.
 
+Task rows must sit under the section heading matching their status:
+`## Open`, `## Doing`, `## Blocked`, `## Done`, or `## Cancelled`.
+The `[expired]` status belongs under `## Cancelled`, as required by the
+retired-task helper; do not create a separate `## Expired` section.
+Never leave task rows outside a recognized section or under an incompatible
+section. Create the required heading when creating a board; move
+rows to the matching section whenever their status changes. Put example
+row syntax in fenced blocks so it cannot be mistaken for a live task.
+
+**Timestamp and format verification — all project and conductor logbooks.**
+Use `## [ISO_TIMESTAMP] — topic` headers with a full date, time, and
+explicit timezone (`Z`, `+HH:MM`, or `+HHMM`). Date-only and unbracketed
+headers are incompatible with the rotation helpers. Obtain new-entry
+timestamps from the wrapper clock or `date` at write time. For historical
+entries, use a verified full event timestamp only when available;
+otherwise use the current write timestamp and label the event date as
+reconstructed in the body, citing its source. Never invent a historical
+time to make a header parse.
+
+Before completing any task-board or logbook bookkeeping change, perform
+a read-only format check of each file changed: every task row must be in
+the section matching its status, and every logbook section header must
+have a parseable full timestamp with a timezone. Fix defects introduced
+by the current change before finishing. Surface pre-existing defects
+and track their repair; do not silently invent missing historical times
+or rewrite unrelated entries. Do not use mutating rotation helpers as
+format validators.
+
 ---
 
 ## Project logbooks — `projects/{project}/logbook.md`
