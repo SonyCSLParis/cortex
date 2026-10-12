@@ -6,12 +6,13 @@
 
 **A file-native operating environment for long-running human-agent work.**
 
-Cortex turns your CLI agent into a conductor chat for coordinating projects, 
-durable context, specialist agents, and real machines across sessions. 
+Cortex turns your CLI agent into a conductor chat for coordinating projects,
+durable context, specialist agents, and real machines across sessions.
 Its source of truth is a workspace of transparent files that you own: tasks,
 logbooks, instructions, inboxes, project notes, and operational state.
 
 [Quickstart](#quickstart) · [How it works](#how-cortex-works) ·
+[Multi-server setup](#recommended-multi-server-setup) ·
 [Who it is for](#who-cortex-is-for) · [Examples](#example-workflows)
 
 ## Give long-running work a durable home.
@@ -106,6 +107,14 @@ Multiple conductor windows can be open at once. Each has session-local runtime
 metadata under `agents/conductor/sessions/`, while all windows share the same
 project state and conductor inbox. Only one window should perform inbox triage
 or agent dispatch at a time.
+
+### Recommended multi-server setup
+
+For a multi-server setup, keep the Cortex folder on a central server and mount
+it as shared storage on every node where you want to use Cortex. On each node,
+create a local symlink to that shared folder, ideally at the same path. This
+gives every conductor and agent access to the same projects, instructions,
+inboxes, and durable context.
 
 ## Who Cortex Is For
 
@@ -226,10 +235,6 @@ You can begin with ordinary requests such as:
 > Inspect the current implementation, make the change, run the relevant tests,
 > and record the durable outcome.
 
-For a multi-machine setup, a shared NAS-mounted checkout can be linked at the
-same path on each host. Environment-specific hostnames, paths, and credentials
-belong in the private environment layer, not in framework files.
-
 ## Provider and Session Options
 
 By default, `cortex.sh` starts a fresh conductor session with Codex. Codex
@@ -343,11 +348,10 @@ Start a node agent on the current machine:
 bash scripts/start_agent_screen.sh --role node --provider codex
 ```
 
-Node agents on several servers can share one Cortex checkout. On every node
-host, create a symlink to the same central Cortex directory (for example, on
-shared storage reachable from every server) so the agents use one shared
-control plane. The conductor must be able to SSH to each node host; keep the
-actual host and access details in `environments/{env}/cheat_sheet.md`.
+For node agents on several servers, use the
+[recommended multi-server setup](#recommended-multi-server-setup).
+The conductor must be able to SSH to each node host; keep the actual host and
+access details in `environments/{env}/cheat_sheet.md`.
 
 Start a named worker:
 
