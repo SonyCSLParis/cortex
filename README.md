@@ -6,10 +6,10 @@
 
 **A file-native operating environment for long-running human-agent work.**
 
-Cortex gives you one conductor chat for coordinating projects, durable context,
-specialist agents, and real machines across sessions. Its source of truth is a
-workspace of transparent files that you own: tasks, logbooks, instructions,
-inboxes, project notes, and operational state.
+Cortex turns your CLI agent into a conductor chat for coordinating projects, 
+durable context, specialist agents, and real machines across sessions. 
+Its source of truth is a workspace of transparent files that you own: tasks,
+logbooks, instructions, inboxes, project notes, and operational state.
 
 [Quickstart](#quickstart) · [How it works](#how-cortex-works) ·
 [Who it is for](#who-cortex-is-for) · [Examples](#example-workflows)
