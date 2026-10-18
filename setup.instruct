@@ -61,10 +61,27 @@ After the relevant choices, state the effective defaults briefly:
 
 - no workers, watch process, messaging daemon, or public export starts
   automatically
-- the conductor uses `CORTEX_CONDUCTOR_PROVIDER` when set (otherwise Codex),
-  and nodes/workers use `CORTEX_AGENT_PROVIDER` when set (otherwise Claude)
+- the conductor uses `CORTEX_CONDUCTOR_PROVIDER` when set (otherwise Codex);
+  nodes default to Claude, while shipped named workers default to Codex.
+  `CORTEX_AGENT_PROVIDER` overrides the node/worker default, and explicit
+  launch flags take precedence
 - provider permission behavior remains unchanged unless
   `CORTEX_CONDUCTOR_PERMISSION_MODE` is set or a launch flag overrides it
+  for the interactive conductor. Workers run with provider approval bypasses
+  inside the launcher's filesystem sandbox; macOS `macos-direct` has no
+  launcher filesystem isolation, so worker instructions are the remaining
+  action boundary there
+- interactive terminal output is temporarily captured for usage accounting,
+  and prompts/final answers are copied from provider histories into
+  `agents/conductor/sessions/<session>/prompt_log.txt`. Set
+  `CORTEX_TTY_RECORDING_DISABLE=1` to disable terminal capture,
+  `CORTEX_USAGE_DISABLE=1` to disable usage accounting and terminal capture,
+  or `CORTEX_PROMPT_LOG_DISABLE=1` to disable prompt-log syncing. These controls
+  do not disable provider-native history. Prompt transcripts are kept
+  indefinitely by default; `CORTEX_PROMPT_LOG_RETENTION_DAYS=<days>` expires
+  inactive sibling session transcripts after that many days without writes
+  (0 keeps them). Explain these choices before the first substantive project
+  work and store overrides in the environment settings
 - backups initially cover the Cortex worktree and use the configured backup
   root with `BACKUP_KEEP` retention
 - long-lived agents run in the configured session backend, normally screen
@@ -73,3 +90,5 @@ Do not require any optional answer up front. If the user gives only a first
 project name, create the project scaffolding and leave optional integrations
 for later. Point the user to `environments/{env}/settings.env` as the durable
 home for the disclosed defaults and optional runtime configuration.
+Use `bash scripts/cortex_doctor.sh --check config` after setup to check for
+missing files, invalid settings, unavailable backends, and provider login gaps.

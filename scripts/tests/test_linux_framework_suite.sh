@@ -1060,15 +1060,12 @@ test_research_specialist_auto_forward() {
         CORTEX_DIR="${forward_root}" SOURCE_CORTEX_DIR="${repo_dir}" bash <<'EOF'
 set -euo pipefail
 
-extract_result_field() {
-    local key="$1" text="$2"
-    printf '%s\n' "${text}" | awk -v key="${key}" '
-        match($0, "^" key ":[[:space:]]*") {
-            print substr($0, RSTART + RLENGTH)
-            exit
-        }
-    '
-}
+source "${SOURCE_CORTEX_DIR}/roles/common.sh"
+eval "$(awk '
+    /^extract_result_field\(\) \{/ { capture=1 }
+    capture { print }
+    capture && $0 == "}" { exit }
+' "${SOURCE_CORTEX_DIR}/scripts/start_agent.sh")"
 
 new_msg_id() { printf '1234567890_abcd\n'; }
 write_msg() {
@@ -1871,6 +1868,7 @@ run_step "Linux worker dispatch" test_linux_worker_dispatch
 run_step "security bwrap dir args" test_security_bwrap_dir_args
 run_step "worker credential masks" bash "${CORTEX_DIR}/scripts/tests/test_worker_secret_masks.sh"
 run_step "backup default provisioning and selection" python3 "${CORTEX_DIR}/scripts/tests/test_backup_defaults.py"
+run_step "response parsing, logging controls, configuration diagnostics" python3 "${CORTEX_DIR}/scripts/tests/test_control_plane_hardening.py"
 run_step "provider nonzero structured output" test_provider_nonzero_structured_output
 run_step "conductor envelope header neutralization" test_conductor_envelope_header_neutralization
 run_step "rotate_logbook no-preamble rotation" test_rotate_logbook_no_preamble

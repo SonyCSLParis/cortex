@@ -587,6 +587,11 @@ get_body() {
 extract_result_field() {
     local key="$1" text="$2"
     printf '%s\n' "${text}" | awk -v key="${key}" '
+        /^[[:space:]]*$/ { if (started) exit; next }
+        /^(DETAILS|OUTPUT):/ { exit }
+        /^[A-Z][A-Z0-9_]*:[[:space:]]*$/ { exit }
+        !/^[A-Z][A-Z0-9_]*:/ { exit }
+        { started=1 }
         match($0, "^" key ":[[:space:]]*") {
             print substr($0, RSTART + RLENGTH)
             exit
@@ -796,6 +801,8 @@ send_to_conductor() {
     local dest="${CONDUCTOR_INBOX}/$(date -u +%s)_${AGENT_ID}_${msg_id}.msg"
     if ! result_starts_with_structured_preamble "${body}"; then
         safe_body="$(neutralize_envelope_header_lines "${body}")"
+    else
+        safe_body="$(guard_structured_result_body "${body}")"
     fi
     write_msg "${dest}" << EOF
 MSG_ID: ${msg_id}
@@ -845,7 +852,7 @@ TIME:   ${epoch}
 REF:    none
 STATUS: pending
 ---
-${result}
+$(guard_structured_result_body "${result}")
 EOF
     log "→ research-lead auto-forwarded [${role_result}] cycle=${cycle_id} envelope=agents/${lead_id}/inbox/1_${msg_id}.msg"
 }
@@ -1334,6 +1341,17 @@ run_agent_cli_provider_attempt() {
     AGENT_PROVIDER="${provider}"
     output="$(run_agent_cli_single_provider "${provider_prompt}" "${timeout_secs}")" || rc=$?
     AGENT_PROVIDER="${saved_provider}"
+    # Codex may prepend this exact two-line accounting banner. Strip only
+    # that known prefix; arbitrary prose must not turn nested fields into controls.
+    output="$(printf '%s\n' "${output}" | awk '
+        NR==1 && $0=="tokens used" { banner=$0; next }
+        NR==2 && banner!="" {
+            if ($0 ~ /^[0-9][0-9,]*$/) next
+            print banner
+        }
+        { print }
+        END { if (NR==1 && banner!="") print banner }
+    ')"
 
     if (( rc == 0 )); then
         if provider_failure_matches_quota_auth "${output}"; then

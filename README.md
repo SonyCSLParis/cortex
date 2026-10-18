@@ -196,9 +196,12 @@ Outbound Telegram messages go through `scripts/telegram_send.py`, which reads
 `TELEGRAM_BOT_TOKEN` and `TELEGRAM_USER_CHAT_ID` from the environment.
 
 Safe defaults are disclosed during that chat: nothing unattended starts by
-itself; the conductor defaults to Codex and general agents to Claude unless
-configured otherwise; provider permission behavior remains unchanged unless
-overridden; and the initial backup manifest covers only the Cortex worktree.
+itself; the conductor and shipped named workers default to Codex, while nodes
+default to Claude. `CORTEX_AGENT_PROVIDER` overrides the node/worker default;
+explicit launch flags take precedence. Interactive conductor permissions keep
+the provider configuration unless overridden. Workers use provider approval
+bypasses inside launcher filesystem sandboxes; macOS `macos-direct` lacks that
+filesystem isolation. The initial backup manifest covers only the Cortex worktree.
 Public release is always a sanitized export via `scripts/sync_public.sh`, never
 a push of the live operational branch.
 
@@ -432,6 +435,25 @@ Other deterministic operator views (no LLM calls):
 - `scripts/prompt_log_sync_daemon.sh --cwd <repo> --session-dir <dir>
   [--interval N] [--parent-pid PID]`: per-session conductor prompt-log sync
   loop, started by `cortex.sh`
+
+Interactive terminal output is temporarily captured for usage accounting and
+removed after the provider exits. Prompts and final answers are also copied
+from provider histories to each conductor session's `prompt_log.txt`. Configure
+these independently in `environments/<env>/settings.env`:
+
+- `CORTEX_TTY_RECORDING_DISABLE=1`: disable Cortex terminal capture.
+- `CORTEX_USAGE_DISABLE=1`: disable usage accounting and terminal capture.
+- `CORTEX_PROMPT_LOG_DISABLE=1`: disable Cortex prompt-log syncing, including
+  final catch-up. Existing transcripts and provider-native histories remain.
+- `CORTEX_PROMPT_LOG_RETENTION_DAYS=<days>`: on a session sync, remove managed
+  sibling transcripts with no writes for that many days. The current session,
+  fresh heartbeats, and locked transcripts are protected. Only `prompt_log.txt`
+  expires; sync cursors remain to prevent re-import. Default `0` keeps all logs.
+
+These settings apply to new launches; existing daemons keep their launch-time
+environment. Provider-native history and backups have their own retention.
+Run `bash scripts/cortex_doctor.sh --check config` to validate configuration,
+integration file presence, backend availability, and provider login status.
 
 ## Example Workflows
 

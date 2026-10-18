@@ -374,6 +374,10 @@ EOF
 # CORTEX_CONDUCTOR_PROVIDER=codex
 # CORTEX_AGENT_PROVIDER=claude
 # CORTEX_CONDUCTOR_PERMISSION_MODE=default
+# CORTEX_PROMPT_LOG_DISABLE=0
+# CORTEX_PROMPT_LOG_RETENTION_DAYS=0
+# CORTEX_TTY_RECORDING_DISABLE=0
+# CORTEX_USAGE_DISABLE=0
 # CORTEX_DEFAULT_BACKUP_ROOT="${CORTEX_DEFAULT_ROOT}/backups"
 # BACKUP_KEEP=7
 # SIGNAL_RELAY_HOST=
@@ -526,6 +530,7 @@ shell_quote() {
 }
 
 cortex_prompt_log_sync_once() {
+    [[ "${CORTEX_PROMPT_LOG_DISABLE:-0}" != "1" ]] || return 0
     local script_path="${CORTEX_DIR}/scripts/prompt_log_sync.py"
     [[ -n "${CONDUCTOR_SESSION_DIR:-}" ]] || return 0
     [[ -f "${script_path}" ]] || return 0
@@ -542,6 +547,7 @@ cortex_prompt_log_sync_once() {
 }
 
 start_prompt_log_sync() {
+    [[ "${CORTEX_PROMPT_LOG_DISABLE:-0}" != "1" ]] || return 0
     local daemon_script="${CORTEX_DIR}/scripts/prompt_log_sync_daemon.sh"
     [[ -n "${CONDUCTOR_SESSION_DIR:-}" ]] || return 0
     if [[ ! -d "${CONDUCTOR_SESSION_DIR}" ]]; then
@@ -628,7 +634,8 @@ run_conductor_provider() {
     usage_file="$(mktemp 2>/dev/null || echo "/tmp/cortex_conductor_usage_$$_${RANDOM}")"
 
     started_epoch="$(date -u +%s)"
-    if command -v script >/dev/null 2>&1 && [[ -t 0 && -t 1 ]]; then
+    if [[ "${CORTEX_TTY_RECORDING_DISABLE:-0}" != "1" && "${CORTEX_USAGE_DISABLE:-0}" != "1" ]] \
+       && command -v script >/dev/null 2>&1 && [[ -t 0 && -t 1 ]]; then
         if script -h 2>&1 | grep -qE '(^|[[:space:]])-c([[:space:],]|$)'; then
             local command_line="" arg
             for arg in "${command[@]}"; do
@@ -651,7 +658,8 @@ run_conductor_provider() {
     # sourced at launch, which otherwise writes silent unknown_price rows.
     source "${CORTEX_DIR}/scripts/usage_lib.sh" 2>/dev/null || true
 
-    if [[ -s "${usage_file}" ]]; then
+    # Native provider histories can still supply usage when TTY capture is off.
+    if [[ "${CORTEX_USAGE_DISABLE:-0}" != "1" ]]; then
         if [[ "${PROVIDER}" == "codex" ]]; then
             usage_codex_home="${CODEX_HOME:-${HOME}/.codex}"
             CORTEX_USAGE_CODEX_HOME="${usage_codex_home}" \

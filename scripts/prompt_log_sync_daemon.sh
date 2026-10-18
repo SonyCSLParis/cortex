@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+[[ "${CORTEX_PROMPT_LOG_DISABLE:-0}" != "1" ]] || exit 0
+
 usage() {
     cat <<'EOF'
 Usage:

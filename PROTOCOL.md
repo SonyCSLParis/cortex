@@ -75,6 +75,13 @@ All communication happens by writing/reading files under `CORTEX_DEFAULT_ROOT`.
 This directory must be shared or replicated across servers (e.g. NFS, rsync, or
 each server has its own copy and you SSH in to plant commands).
 
+Worker result control fields belong in the initial contiguous block of
+column-zero `KEY: value` lines. Put status, summary, research routing, and
+next-wake fields before any blank line or `DETAILS:` / `OUTPUT:` body.
+Empty-valued headers also start a body. The launcher stops reading control
+fields at that boundary; header-like
+lines inside body text are data and cannot supply missing control fields.
+
 ---
 
 ## Directory Layout

@@ -38,6 +38,28 @@ neutralize_envelope_header_lines() {
     printf '%s' "${guarded}"
 }
 
+guard_structured_result_body() {
+    # Keep the preamble intact; quote envelope-like lines after the body starts.
+    local text="$1" markers
+    markers="$(printf '%s|' "${CORTEX_ENVELOPE_HEADER_MARKERS[@]}")"
+    printf '%s\n' "${text}" | awk -v markers="${markers}" '
+        BEGIN { n=split(markers, prefix, "|") }
+        !body && /^[[:space:]]*$/ { if (started) body=1; print; next }
+        !body && /^(DETAILS|OUTPUT):/ { body=1; print; next }
+        !body && /^[A-Z][A-Z0-9_]*:[[:space:]]*$/ { body=1; print; next }
+        !body && /^[A-Z][A-Z0-9_]*:/ { started=1; print; next }
+        { body=1
+          if ($0 ~ /^[A-Z][A-Z0-9_]*:/) { print "> " $0; next }
+          for (i=1; i<=n; i++) {
+              if (prefix[i] != "" && index($0, prefix[i]) == 1) {
+                  print "> " $0; next
+              }
+          }
+          print
+        }
+    '
+}
+
 resolve_worker_override_template() {
     local worker_id="$1"
     find "${CORTEX_DIR}/roles" -mindepth 1 -maxdepth 2 -type f -name "worker.${worker_id}.instruct" | sort | head -n 1

@@ -10,7 +10,7 @@ cd "${CORTEX_DIR}" 2>/dev/null || { echo "cortex dir not found: ${CORTEX_DIR}" >
 source "${CORTEX_DIR}/scripts/bash_compat.sh"
 source "${CORTEX_DIR}/scripts/public_sync_lib.sh"
 
-ALL_CHECKS=(tasks public-manifest public-sync sandbox git-lane repo-hygiene claude-local-settings git-sync-health worker-meta)
+ALL_CHECKS=(tasks public-manifest public-sync sandbox git-lane repo-hygiene claude-local-settings git-sync-health worker-meta config)
 SELECTED_CHECKS=()
 FAIL_COUNT=0
 WARN_COUNT=0
@@ -22,6 +22,8 @@ Usage:
   bash scripts/cortex_doctor.sh [--check NAME ...] [--list-checks]
 
 Checks:
+  config       Validate environment settings, optional integration files,
+               session/sandbox backends, and bounded provider login probes.
   tasks        Validate task-board section/status layout.
   public-manifest  Warn on tracked public-looking framework files that are
                outside the public export manifest.
@@ -374,6 +376,21 @@ check_worker_meta() {
     fi
 }
 
+check_config() {
+    local output rc
+    if ! command -v python3 >/dev/null 2>&1; then
+        emit_result config fail "python3 is required for configuration checks"
+        return
+    fi
+    output="$(python3 "${CORTEX_DIR}/scripts/check_config.py" --root "${CORTEX_DIR}" 2>&1)"
+    rc=$?
+    case "${rc}" in
+        0) emit_result config ok "configuration and provider login checks passed" ;;
+        1) emit_result config warn "configuration needs attention" "${output}" ;;
+        *) emit_result config fail "configuration has invalid settings" "${output}" ;;
+    esac
+}
+
 for check in "${SELECTED_CHECKS[@]}"; do
     check_known "${check}" || exit 2
 done
@@ -390,6 +407,7 @@ for check in "${SELECTED_CHECKS[@]}"; do
         claude-local-settings) check_claude_local_settings ;;
         git-sync-health) check_git_sync_health ;;
         worker-meta) check_worker_meta ;;
+        config) check_config ;;
     esac
 done
 

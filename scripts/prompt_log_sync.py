@@ -403,8 +403,42 @@ def append_entries(log_path: Path, entries: list[dict]) -> None:
                 handle.write("<<<CORTEX_ANSWER_END>>>\n\n")
 
 
+def prune_inactive_transcripts(session_dir: Path, retention_days: int) -> None:
+    """Expire idle sibling transcripts; preserve cursors to prevent re-import."""
+    if retention_days <= 0:
+        return
+    cutoff = time.time() - retention_days * 86400
+    for candidate in session_dir.parent.glob("*/prompt_log.txt"):
+        sibling = candidate.parent
+        if sibling.resolve() == session_dir.resolve() or candidate.is_symlink():
+            continue
+        state_path = sibling / ".prompt_log_state.json"
+        if not state_path.is_file() or sibling.is_symlink():
+            continue
+        try:
+            with state_path.with_suffix(".json.lock").open("a+") as lock:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                heartbeat = sibling / "heartbeat"
+                if heartbeat.exists() and heartbeat.stat().st_mtime > time.time() - 300:
+                    continue
+                if candidate.stat().st_mtime < cutoff:
+                    candidate.unlink()
+        except OSError:
+            # A concurrent sync or cleanup owns this session; retry next wake.
+            continue
+
+
 def main() -> int:
+    if os.environ.get("CORTEX_PROMPT_LOG_DISABLE", "0") == "1":
+        return 0
     args = parse_args()
+    try:
+        retention_days = int(os.environ.get("CORTEX_PROMPT_LOG_RETENTION_DAYS", "0"))
+        if retention_days < 0:
+            raise ValueError
+    except ValueError:
+        print("CORTEX_PROMPT_LOG_RETENTION_DAYS must be a nonnegative integer", file=sys.stderr)
+        return 2
     cwd = str(Path(args.cwd).resolve())
     base_dir = None
     if args.session_dir:
@@ -423,6 +457,9 @@ def main() -> int:
     state_path = Path(args.state_path) if args.state_path else base_dir / ".prompt_log_state.json"
     lock_path = state_path.with_suffix(state_path.suffix + ".lock")
     exclude_texts = {normalize_prompt(text) for text in args.exclude_text if text is not None}
+
+    if args.session_dir and retention_days:
+        prune_inactive_transcripts(base_dir, retention_days)
 
     base_dir.mkdir(parents=True, exist_ok=True)
     lock_path.parent.mkdir(parents=True, exist_ok=True)

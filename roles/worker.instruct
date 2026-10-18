@@ -186,6 +186,10 @@ answers simpler. `TASK_ID:` is still required when one was provided.
 
 Default structured form:
 
+Put all machine-read control fields (including research routing and next-wake
+fields) in the opening header block, before a blank line or `DETAILS:` /
+`OUTPUT:`. See the worker-result parsing contract in `PROTOCOL.md`.
+
 ```
 STATUS: done        (or: error / warning)
 TASK_ID: T20260423-01   (if provided in the command)
