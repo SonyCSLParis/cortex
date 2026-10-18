@@ -421,6 +421,9 @@ Other deterministic operator views (no LLM calls):
 - `scripts/usage_report.py [--since 24h|7d] [--quiet-line] [--ledger PATH]`:
   provider-usage summary from the user ledger; `scripts/usage_lib.sh` holds
   the shared accounting helpers the launchers use to write that ledger.
+  Appends and price backfills share a persistent sidecar lock through Python's
+  `fcntl.flock`, including on macOS without the `flock` command. Lock errors
+  abort the write; the sidecar must remain in place during normal operation.
   Claude runs are attributed by identity: every launch pins a `--session-id`
   and only that transcript (plus its subagent transcripts) is summed, so
   concurrent sessions in the same checkout do not bleed into each other;

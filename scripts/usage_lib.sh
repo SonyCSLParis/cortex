@@ -32,6 +32,30 @@ cortex_usage_header() {
         "timestamp_local	timestamp_utc	epoch	agent	role	run_kind	provider	model	input_tokens	cached_input_tokens	output_tokens	total_tokens	estimated_usd	estimate_note	source"
 }
 
+cortex_usage_lock_ledger() {
+    # The caller opens FD 9 on <ledger>.lock and keeps it open for the whole
+    # write/rename. flock belongs to that inherited open file description,
+    # so it survives this helper's exit until the caller closes FD 9.
+    # Python's interface is available on Linux and macOS without a flock CLI.
+    python3 -c '
+import fcntl
+import errno
+import sys
+import time
+while True:
+    try:
+        # Some NFS servers do not wake a blocking waiter after release.
+        fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        break
+    except OSError as error:
+        if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+            time.sleep(0.1)
+            continue
+        print("Cannot acquire usage ledger lock; ledger write aborted.", file=sys.stderr)
+        sys.exit(1)
+'
+}
+
 cortex_usage_clean_number() {
     printf '%s' "${1:-}" | tr -cd '0-9'
 }
@@ -510,9 +534,7 @@ cortex_usage_record_from_file() {
         if [[ -n "${claude_rows}" ]]; then
             lock_file="${ledger}.lock"
             {
-                if command -v flock >/dev/null 2>&1; then
-                    flock 9 || true
-                fi
+                cortex_usage_lock_ledger || return 1
                 if [[ ! -s "${ledger}" ]]; then
                     cortex_usage_header > "${ledger}"
                 fi
@@ -536,7 +558,7 @@ cortex_usage_record_from_file() {
                         "${c_input_col}" "${c_cached_col}" "${c_output}" "${c_total_col}" \
                         "${c_estimate_usd}" "${c_estimate_note}" "${source}" >> "${ledger}"
                 done <<< "${claude_rows}"
-            } 9>> "${lock_file}"
+            } 9>> "${lock_file}" || return 1
             return 0
         fi
     fi
@@ -553,9 +575,7 @@ cortex_usage_record_from_file() {
         if [[ -n "${codex_rows}" ]]; then
             lock_file="${ledger}.lock"
             {
-                if command -v flock >/dev/null 2>&1; then
-                    flock 9 || true
-                fi
+                cortex_usage_lock_ledger || return 1
                 if [[ ! -s "${ledger}" ]]; then
                     cortex_usage_header > "${ledger}"
                 fi
@@ -579,7 +599,7 @@ cortex_usage_record_from_file() {
                         "${x_input_col}" "${x_cached}" "${x_output}" "${x_total_col}" \
                         "${x_estimate_usd}" "${x_estimate_note}" "${source}" >> "${ledger}"
                 done <<< "${codex_rows}"
-            } 9>> "${lock_file}"
+            } 9>> "${lock_file}" || return 1
             return 0
         fi
     fi
@@ -626,9 +646,7 @@ cortex_usage_record_from_file() {
 
     lock_file="${ledger}.lock"
     {
-        if command -v flock >/dev/null 2>&1; then
-            flock 9 || true
-        fi
+        cortex_usage_lock_ledger || return 1
         if [[ ! -s "${ledger}" ]]; then
             cortex_usage_header > "${ledger}"
         fi
@@ -639,5 +657,5 @@ cortex_usage_record_from_file() {
             "${agent}" "${role}" "${run_kind}" "${provider}" "${model}" \
             "${input_tokens}" "${cached_tokens}" "${output_tokens}" "${total_tokens}" \
             "${estimate_usd}" "${estimate_note}" "${source}" >> "${ledger}"
-    } 9>> "${lock_file}"
+    } 9>> "${lock_file}" || return 1
 }

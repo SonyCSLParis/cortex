@@ -16,6 +16,7 @@ agents/*/statusreport_last_ts
 agents/*/selfcheck_*.snapshot
 agents/*/status_latest.snapshot
 agents/*/prompt_context_latest.snapshot
+agents/*/periodic_snapshot.out
 agents/*/working
 agents/*/selfcheck_unparseable_*.txt
 agents/*/.codex_last.tmp

@@ -18,7 +18,7 @@ worker_commit_collect_command_scope() {
     worker_commit_reset_command_scope
 
     local allow_hooks
-    allow_hooks="$(trim_whitespace "$(extract_result_field "COMMIT_RW_ALLOW_HOOKS" "${body_raw}")")"
+    allow_hooks="$(trim_whitespace "$(extract_command_control_field "COMMIT_RW_ALLOW_HOOKS" "${body_raw}")")"
     case "${allow_hooks}" in
         1|true|TRUE|yes|YES)
             [[ "${from_name}" == "conductor" ]] && COMMIT_RW_ALLOW_HOOKS="1"

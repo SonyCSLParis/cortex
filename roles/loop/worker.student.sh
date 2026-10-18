@@ -45,7 +45,7 @@ worker_student_collect_round_scope() {
     worker_student_reset_round_scope
 
     local allow_sensitive
-    allow_sensitive="$(trim_whitespace "$(extract_result_field "STUDENT_RW_ALLOW_SENSITIVE" "${body_raw}")")"
+    allow_sensitive="$(trim_whitespace "$(extract_command_control_field "STUDENT_RW_ALLOW_SENSITIVE" "${body_raw}")")"
     case "${allow_sensitive}" in
         1|true|TRUE|yes|YES)
             [[ "${from_name}" == "conductor" ]] && STUDENT_RW_ALLOW_SENSITIVE="1"

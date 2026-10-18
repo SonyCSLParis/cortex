@@ -67,8 +67,11 @@ should perform the backup, not merely suggest that one be performed.
 
 When the prompt label is `COMMAND TO EXECUTE (PERIODIC CHECK)`:
 
-1. Run `bash roles/operational/backup/backup_snapshot.sh`.
-2. If it succeeds cleanly, return `CHECK: ok`.
+1. The wrapper has already run `bash roles/operational/backup/backup_snapshot.sh`
+   to completion before your turn; read the `WRAPPER SNAPSHOT RUN` block in
+   the prompt (exit code, output tail, full output path). Do not rerun the
+   script during a periodic check.
+2. If it exited 0 with a `LATEST:` line, return `CHECK: ok`.
 3. If it reports missing paths, retention problems, or any failure that
    means coverage is incomplete or suspicious, return `CHECK: suggest`
    with the exact broken target or failure.
@@ -77,6 +80,9 @@ When the prompt label is `COMMAND TO EXECUTE (PERIODIC CHECK)`:
    record that durable fact in `agents/{id}/logbook.md`.
 
 Use the script's own output as evidence. Keep the final report compact.
+On success the script itself appends the canonical
+`[TS] backup | SNAPSHOT_OK: <snapshot id>` line that freshness reporting
+reads; never write or imitate that marker yourself.
 
 Strict periodic-check response format:
 
@@ -108,7 +114,9 @@ DETAILS:
 
 If the conductor sends a normal COMMAND, you may:
 
-- run an immediate backup
+- run an immediate backup (prefer having the conductor make the periodic
+  check due, so the wrapper runs it; a long copy inside your own tool call
+  dies if your turn ends first)
 - edit the configured environment backup manifest
 - adjust the backup script
 - inspect prior snapshots under the configured backup root

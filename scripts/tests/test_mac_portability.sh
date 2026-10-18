@@ -133,7 +133,7 @@ fi
 
 # flock / bwrap: absence is expected on macOS and the framework has fallbacks
 # (mkdir locks, macos-direct worker backend). Informational only.
-have flock || note_ok "flock absent (expected on macOS — locks use mkdir, not flock)"
+have flock || note_ok "flock absent (expected on macOS — usage ledger locks use Python fcntl)"
 have bwrap || note_ok "bwrap absent (expected on macOS — workers use macos-direct backend)"
 
 # -----------------------------------------------------------------------------

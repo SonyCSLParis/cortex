@@ -64,13 +64,21 @@ class BackupDefaultsTests(unittest.TestCase):
             manifest = self.work / (mode + '-targets.txt')
             manifest.write_text('fixture|' + mode + '|' + str(source) + '\n')
             destination = self.work / ('backup-' + mode)
+            # Point the success marker at a fixture log: the script defaults to
+            # the live agents/backup/log.md under CORTEX_DIR, and a test must
+            # never write a SNAPSHOT_OK the ops freshness check would trust.
+            success_log = self.work / ('backup-' + mode + '-success.log')
             env = dict(os.environ, CORTEX_DIR=str(ROOT), BACKUP_ROOT=str(destination),
-                       BACKUP_TARGETS_FILE=str(manifest), BACKUP_EXCLUDES_DIR=str(TEMPLATES), BACKUP_KEEP='1')
+                       BACKUP_TARGETS_FILE=str(manifest), BACKUP_EXCLUDES_DIR=str(TEMPLATES), BACKUP_KEEP='1',
+                       BACKUP_SUCCESS_LOG=str(success_log))
             result = subprocess.run(['bash', str(ROOT / 'roles/operational/backup/backup_snapshot.sh')],
                                     env=env, check=True, capture_output=True, text=True)
             self.assertIn('TARGET: fixture', result.stdout)
             snapshot = (destination / 'latest').resolve() / 'fixture'
             self.assertTrue(snapshot.is_dir())
+            marker_lines = success_log.read_text().splitlines()
+            self.assertEqual(len(marker_lines), 1, marker_lines)
+            self.assertIn('] backup | SNAPSHOT_OK: ' + snapshot.parent.name, marker_lines[0])
             for relative in retained:
                 self.assertTrue((snapshot / relative).is_file(), (mode, relative))
             for relative in excluded:

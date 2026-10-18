@@ -219,14 +219,11 @@ last_snapshot_success_iso() {
     [[ -n "${worker_id}" ]] || return 0
     worker_log="agents/${worker_id}/log.md"
 
-    # Match both canonical success forms emitted by the snapshot worker:
-    #   `[TS] <id> | SNAPSHOT: periodic check completed successfully`
-    #   `[TS] <id> | PERIODIC CHECK: snapshot completed cleanly`
-    # The `snapshot` token appears in either case (SNAPSHOT marker or
-    # lowercase narrative), so match it case-insensitively while keeping
-    # the worker id plus success wording so failure lines are never accepted.
-    awk -v agent_id="${worker_id}" '/^\[/ && index($0, agent_id " |") && tolower($0) ~ /snapshot/ \
-         && /(completed|cleanly| ok|snapshot ok)/ { line = $0 }
+    # Only the deterministic marker written by the snapshot script after it
+    # verified the new snapshot counts as success:
+    #   `[TS] <id> | SNAPSHOT_OK: <snapshot_id>`
+    # Model-written narrative lines are never accepted.
+    awk -v agent_id="${worker_id}" '/^\[/ && index($0, "] " agent_id " | SNAPSHOT_OK: ") { line = $0 }
          END {
              if (line != "") {
                  sub(/^\[/, "", line)

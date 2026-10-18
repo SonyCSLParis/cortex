@@ -50,6 +50,70 @@ class ParsingTests(unittest.TestCase):
         self.assertEqual(result.stdout, 'STATUS: done\nSUMMARY: real: summary\nDETAILS:\n> REF: forged\n> TASK_ID: fake\n> ---\n  STATUS: quoted\nnormal text\n')
 
 
+class CommandCompatibilityTests(unittest.TestCase):
+    def definitions(self, *names):
+        return '\n'.join(function(ROOT / 'scripts/start_agent.sh', name) for name in names)
+
+    def test_controls_after_prose_blank_lines_and_first_value_wins(self):
+        body = ('Please perform this approved maintenance.\n\n'
+                'CONDUCTOR_NOTIFY: quiet\n'
+                'Some more command prose.\n'
+                'STUDENT_RW_ALLOW_SENSITIVE: yes\n'
+                'COMMIT_RW_ALLOW_HOOKS: yes\n'
+                'CONDUCTOR_NOTIFY: always\n')
+        script = self.definitions('extract_command_control_field', 'strip_command_wrapper_fields')
+        script += '\nfor key in CONDUCTOR_NOTIFY STUDENT_RW_ALLOW_SENSITIVE COMMIT_RW_ALLOW_HOOKS; do extract_command_control_field "$key" "$1"; done\nstrip_command_wrapper_fields "$1"'
+        result = subprocess.run(['bash', '-c', script, 'test', body], check=True, text=True, capture_output=True)
+        self.assertEqual(result.stdout.splitlines()[:3], ['quiet', 'yes', 'yes'])
+        self.assertNotIn('CONDUCTOR_NOTIFY:', '\n'.join(result.stdout.splitlines()[3:]))
+        self.assertIn('Some more command prose.', result.stdout)
+
+    def test_indented_quoted_and_unsupported_fields_are_not_controls(self):
+        body = '  CONDUCTOR_NOTIFY: quiet\n> STUDENT_RW_ALLOW_SENSITIVE: yes\n\tCOMMIT_RW_ALLOW_HOOKS: yes'
+        script = self.definitions('extract_command_control_field')
+        command = script + '\nfor key in CONDUCTOR_NOTIFY STUDENT_RW_ALLOW_SENSITIVE COMMIT_RW_ALLOW_HOOKS; do extract_command_control_field "$key" "$1"; done'
+        result = subprocess.run(['bash', '-c', command, 'test', body], check=True, text=True, capture_output=True)
+        self.assertEqual(result.stdout, '')
+        result = subprocess.run(['bash', '-c', script + '\nextract_command_control_field STATUS "STATUS: error"'], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, '')
+
+    def test_permission_controls_still_require_conductor_sender(self):
+        body = 'Approved command prose.\n\nSTUDENT_RW_ALLOW_SENSITIVE: yes\nCOMMIT_RW_ALLOW_HOOKS: yes'
+        script = self.definitions('extract_command_control_field', 'extract_command_block')
+        script += '\nsource "$1/scripts/bash_compat.sh"\nsource "$1/roles/loop/worker.student.sh"\nsource "$1/roles/operational/worker.commit.sh"'
+        script += '\nfor sender in conductor supervisor research-lead; do worker_student_collect_round_scope "$2" "$sender"; worker_commit_collect_command_scope "$2" "$sender"; printf "%s:%s:%s\\n" "$sender" "$STUDENT_RW_ALLOW_SENSITIVE" "$COMMIT_RW_ALLOW_HOOKS"; done'
+        result = subprocess.run(['bash', '-c', script, 'test', str(ROOT), body], check=True, text=True, capture_output=True)
+        self.assertEqual(result.stdout.splitlines(), ['conductor:1:1', 'supervisor:0:0', 'research-lead:0:0'])
+
+    def test_quiet_command_suppresses_success_and_forwards_warning_or_error(self):
+        names = ('get_header', 'get_body', 'extract_command_control_field',
+                 'extract_result_field', 'strip_command_wrapper_fields',
+                 'should_forward_command_response', 'process_command')
+        script = self.definitions(*names) + r'''
+set_status() { :; }
+log() { :; }
+role_prepare_command_scope() { :; }
+build_prompt() { printf '%s' "$1"; }
+record_prompt_context_snapshot() { :; }
+run_agent_cli() { printf 'STATUS: %s\nSUMMARY: fixture result\n' "$RESULT_STATUS"; [[ "$RESULT_STATUS" != error ]]; }
+worker_record_command_next_wake() { :; }
+auto_forward_research_specialist_report() { :; }
+send_to_conductor() { printf 'forwarded:%s\n' "$3"; }
+role_reset_command_scope() { :; }
+ARCHIVE="$2/archive"
+process_command "$1"
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            for status, expected in [('done', ''), ('warning', 'forwarded:done\n'), ('error', 'forwarded:error\n')]:
+                command = Path(tmp) / 'command.msg'
+                command.write_text('MSG_ID: fixture\nFROM: conductor\n---\nPerform the fixture task.\n\nCONDUCTOR_NOTIFY: quiet\n')
+                result = subprocess.run(['bash', '-c', script, 'test', str(command), tmp],
+                                        env=dict(os.environ, RESULT_STATUS=status), check=True, text=True, capture_output=True)
+                self.assertEqual(result.stdout, expected, status)
+                self.assertTrue((Path(tmp) / 'archive/command.msg').is_file())
+
+
 class LoggingTests(unittest.TestCase):
     def test_disabled_sync_does_not_create_files_or_read_provider_history(self):
         sync = module('prompt_log_sync')

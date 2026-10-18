@@ -651,6 +651,17 @@ run_worker_check() {
 
     set_status "busy"
     log "worker check: starting periodic check"
+    # Optional bundle hook for deterministic work that must not depend on the
+    # model staying in its turn (e.g. a long copy). Its stdout is appended to
+    # the prompt as evidence; the model then only interprets and reports.
+    local pre_hook="" pre_result="" pre_hb_pid=""
+    pre_hook="$(worker_resolve_hook_name pre_periodic_check || true)"
+    if [[ -n "${pre_hook}" ]]; then
+        pre_hb_pid="$(start_work_heartbeat)"
+        pre_result="$("${pre_hook}")"
+        stop_work_heartbeat "${pre_hb_pid}"
+        printf -v check_body '%s\n%s\n' "${check_body}" "${pre_result}"
+    fi
     prompt="$(build_prompt "${check_body}" "PERIODIC CHECK")"
     record_prompt_context_snapshot "periodic_check" "${prompt}" || true
     result="$(run_agent_cli "${prompt}" "${WORKER_REVIEW_TIMEOUT}")" || status_field="warning"

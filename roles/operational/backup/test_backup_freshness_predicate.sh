@@ -2,7 +2,7 @@
 # =============================================================================
 # backup/test_backup_freshness_predicate.sh — smoke test for the
 # `last_snapshot_success_iso` awk predicate in scripts/cortex_ops_snapshot.sh.
-# Feeds known-good and known-bad snapshot-worker log lines through the
+# Feeds SNAPSHOT_OK markers and non-marker snapshot-worker log lines through the
 # predicate and checks the right answer comes out. Run from anywhere; uses
 # a temp file.
 # =============================================================================
@@ -15,23 +15,21 @@ tmp_log="$(mktemp)"
 trap 'rm -f "${tmp_log}"' EXIT
 
 # Inputs are intentionally ordered so the *last* matching line wins;
-# the predicate must pick `[2026-05-19T13:26:24Z]` (latest success).
+# the predicate must pick `[2026-05-19T13:26:24+0200]` (latest marker).
 cat > "${tmp_log}" <<'LOG'
 [2026-05-19T10:00:00Z] snapshot-worker | START: periodic check starting
 [2026-05-19T10:01:00Z] snapshot-worker | ERROR: rsync exited 20 — failure must not be accepted as success
-[2026-05-19T11:26:18Z] snapshot-worker | SNAPSHOT: periodic check completed successfully
-  - snapshot_id=2026-05-19T13-26-37+0200
-[2026-05-19T12:00:00Z] conductor | NOTE: unrelated line mentioning snapshot completed — wrong agent
-[2026-05-19T13:26:24Z] snapshot-worker | PERIODIC CHECK: snapshot completed cleanly
-  - snapshot_id: 2026-05-19T15-26-31+0200
+[2026-05-19T11:26:18+0200] snapshot-worker | SNAPSHOT_OK: 2026-05-19T11-26-37+0200
+[2026-05-19T12:00:00Z] conductor | NOTE: snapshot-worker | SNAPSHOT_OK: quoted marker — wrong agent
+[2026-05-19 13:20:00 +0200] snapshot-worker: worker check: ok; snapshot completed — narrative, not the marker
+[2026-05-19T13:26:24+0200] snapshot-worker | SNAPSHOT_OK: 2026-05-19T13-26-31+0200
 [2026-05-19T14:00:00Z] snapshot-worker | ERROR: rsync stalled — not a success line
 LOG
 
 # Inline the predicate verbatim from cortex_ops_snapshot.sh so this test
 # fails if the script's logic drifts away from what the smoke covers.
 result="$(
-    awk '/^\[/ && /snapshot-worker \|/ && tolower($0) ~ /snapshot/ \
-         && /(completed|cleanly| ok|snapshot ok)/ { line = $0 }
+    awk -v agent_id="snapshot-worker" '/^\[/ && index($0, "] " agent_id " | SNAPSHOT_OK: ") { line = $0 }
          END {
              if (line != "") {
                  sub(/^\[/, "", line)
@@ -41,7 +39,7 @@ result="$(
          }' "${tmp_log}"
 )"
 
-expected="2026-05-19T13:26:24Z"
+expected="2026-05-19T13:26:24+0200"
 if [[ "${result}" != "${expected}" ]]; then
     echo "FAIL: expected '${expected}', got '${result}'" >&2
     exit 1
@@ -51,11 +49,11 @@ fi
 cat > "${tmp_log}" <<'LOG'
 [2026-05-19T09:00:00Z] snapshot-worker | ERROR: rsync exited 20
 [2026-05-19T09:05:00Z] snapshot-worker | WARN: snapshot stalled, no progress
+[2026-05-19 09:10:00 +0200] snapshot-worker: worker check: ok; snapshot completed cleanly
 LOG
 
 result="$(
-    awk '/^\[/ && /snapshot-worker \|/ && tolower($0) ~ /snapshot/ \
-         && /(completed|cleanly| ok|snapshot ok)/ { line = $0 }
+    awk -v agent_id="snapshot-worker" '/^\[/ && index($0, "] " agent_id " | SNAPSHOT_OK: ") { line = $0 }
          END {
              if (line != "") {
                  sub(/^\[/, "", line)
@@ -78,8 +76,8 @@ mkdir -p "${workdir}/agents/snapshot-worker" "${workdir}/scripts" "${workdir}/co
 # Stub the defaults file the script sources so it does not pull in anything else.
 : > "${workdir}/config/cortex_defaults.sh"
 cat > "${workdir}/agents/snapshot-worker/log.md" <<'LOG'
-[2026-05-19T11:26:18Z] snapshot-worker | SNAPSHOT: periodic check completed successfully
-[2026-05-19T13:26:24Z] snapshot-worker | PERIODIC CHECK: snapshot completed cleanly
+[2026-05-19T11:26:18+0200] snapshot-worker | SNAPSHOT_OK: 2026-05-19T11-26-37+0200
+[2026-05-19T13:26:24+0200] snapshot-worker | SNAPSHOT_OK: 2026-05-19T13-26-31+0200
 LOG
 cat > "${workdir}/roles/operational/worker.snapshot-worker.meta" <<'LOG'
 META_domain="snapshot creation from backup_targets.txt; backup-freshness tracking"
@@ -103,7 +101,7 @@ cp "${CORTEX_DIR}/scripts/cortex_ops_snapshot.sh" "${workdir}/scripts/cortex_ops
       echo "FAIL: sourcing cortex_ops_snapshot.sh returned ${source_rc}" >&2
       exit 1
   fi
-  if [[ "${live_result}" != "2026-05-19T13:26:24Z" ]]; then
+  if [[ "${live_result}" != "2026-05-19T13:26:24+0200" ]]; then
       echo "FAIL: live last_snapshot_success_iso returned '${live_result}'" >&2
       exit 1
   fi

@@ -12,6 +12,7 @@ source "${CORTEX_DIR}/scripts/bash_compat.sh"
 BACKUP_TARGETS_FILE="${BACKUP_TARGETS_FILE:-${CORTEX_DEFAULT_BACKUP_TARGETS_FILE}}"
 BACKUP_ROOT="${BACKUP_ROOT:-${CORTEX_DEFAULT_BACKUP_ROOT}}"
 BACKUP_KEEP="${BACKUP_KEEP:-7}"
+BACKUP_SUCCESS_LOG="${BACKUP_SUCCESS_LOG:-${CORTEX_DIR}/agents/backup/log.md}"
 DRY_RUN=0
 BACKUP_EXCLUDES_DIR="${BACKUP_EXCLUDES_DIR:-}"
 
@@ -27,6 +28,8 @@ Env:
                         Expected files: repo_worktree.txt source_tree.txt path.txt
   BACKUP_ROOT           Snapshot root. Default: CORTEX_DEFAULT_BACKUP_ROOT
   BACKUP_KEEP           Number of snapshots to retain. Default: 7
+  BACKUP_SUCCESS_LOG    Log that receives the canonical success marker.
+                        Default: agents/backup/log.md
 EOF
 }
 
@@ -234,3 +237,12 @@ else
 fi
 
 printf 'LATEST: %s\n' "${BACKUP_ROOT}/latest"
+
+# Canonical success marker, written only after the snapshot directory is in
+# place and `latest` points at it. The ops-snapshot freshness check reads
+# exactly this line, so automated and manual runs report identically.
+[[ -d "${snapshot_final}" && "$(readlink "${BACKUP_ROOT}/latest")" == "${snapshot_final}" ]] \
+    || die "snapshot verification failed: ${snapshot_final}"
+mkdir -p "$(dirname "${BACKUP_SUCCESS_LOG}")"
+printf '[%s] backup | SNAPSHOT_OK: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${snapshot_id}" \
+    >> "${BACKUP_SUCCESS_LOG}"

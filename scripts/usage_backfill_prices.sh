@@ -31,20 +31,25 @@ tmp="${ledger}.backfill.$$"
 changed=0
 scanned=0
 
-# Workers append to the ledger under this lock; rewriting the whole file
-# without it would silently drop a concurrent append.
-if command -v flock >/dev/null 2>&1; then
-    exec 9>"${ledger}.lock"
-    flock 9 || true
-fi
+# Use the same persistent sidecar lock as all ledger appenders. Acquire it
+# before opening the ledger, and hold it through the atomic replacement.
+exec 9>>"${ledger}.lock"
+cortex_usage_lock_ledger || exit 1
 
-# Tab is IFS whitespace, so `read` would collapse the empty token columns these
-# rows are full of; mapfile -d splits without eating them.
+# Tab is IFS whitespace, so `read` would collapse empty token columns.
+# Parameter expansion preserves them on Bash 3.2 as well as newer shells.
 {
     IFS= read -r header
     printf '%s\n' "${header}"
     while IFS= read -r line; do
-        mapfile -d $'\t' -t f < <(printf '%s' "${line}")
+        f=()
+        remainder="${line}"$'\t'
+        field_index=0
+        while [[ "${remainder}" == *$'\t'* ]]; do
+            f[field_index]="${remainder%%$'\t'*}"
+            remainder="${remainder#*$'\t'}"
+            field_index=$((field_index + 1))
+        done
         ts_local="${f[0]:-}"; ts_utc="${f[1]:-}"; epoch="${f[2]:-}"
         agent="${f[3]:-}"; role="${f[4]:-}"; run_kind="${f[5]:-}"
         provider="${f[6]:-}"; model="${f[7]:-}"

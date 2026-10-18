@@ -584,6 +584,22 @@ get_body() {
     awk '/^---$/{found=1; next} found{print}' "$1"
 }
 
+extract_command_control_field() {
+    # Incoming COMMAND bodies allow wrapper controls after ordinary prose.
+    # Keep this separate from the bounded, model-authored result parser.
+    local key="$1" text="$2"
+    case "${key}" in
+        CONDUCTOR_NOTIFY|STUDENT_RW_ALLOW_SENSITIVE|COMMIT_RW_ALLOW_HOOKS) ;;
+        *) return 1 ;;
+    esac
+    printf '%s\n' "${text}" | awk -v key="${key}" '
+        match($0, "^" key ":[[:space:]]*") {
+            print substr($0, RSTART + RLENGTH)
+            exit
+        }
+    '
+}
+
 extract_result_field() {
     local key="$1" text="$2"
     printf '%s\n' "${text}" | awk -v key="${key}" '
@@ -1432,7 +1448,7 @@ process_command() {
     local from_name body_raw notify_policy body
     from_name="$(get_header FROM "${cmd_file}")"
     body_raw="$(get_body "${cmd_file}")"
-    notify_policy="$(extract_result_field "CONDUCTOR_NOTIFY" "${body_raw}")"
+    notify_policy="$(extract_command_control_field "CONDUCTOR_NOTIFY" "${body_raw}")"
     notify_policy="${notify_policy:-always}"
     body="$(strip_command_wrapper_fields "${body_raw}")"
 

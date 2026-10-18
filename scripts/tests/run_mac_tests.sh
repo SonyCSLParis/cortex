@@ -68,6 +68,8 @@ run_test "bash_compat unit tests"              0 bash scripts/tests/test_bash_co
 run_test "snapshot-freshness predicate smoke"  0 bash roles/operational/backup/test_backup_freshness_predicate.sh
 run_test "selfcheck alert dedup smoke"         0 bash scripts/test_selfcheck_alert_dedup.sh
 run_test "usage capture bounds smoke"          0 bash scripts/test_usage_capture_bounds.sh
+run_test "usage backfill portability"          0 python3 scripts/tests/test_usage_backfill_portability.py
+run_test "usage ledger concurrency"            0 python3 scripts/tests/test_usage_ledger_locking.py
 run_test "cortex_doctor invariants"            1 bash scripts/cortex_doctor.sh
 
 if (( FULL )); then

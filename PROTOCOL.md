@@ -279,8 +279,12 @@ event time.
 - Body: everything after the first `---` line
 - **Atomic writes**: always write to `{file}.tmp` then `mv` to `{file}`
   (prevents partial reads by the other side)
-- Wrapper-consumed control lines may appear at the top of a COMMAND
-  body. Current control lines:
+- Wrapper-consumed control lines are column-zero `KEY: value` lines in a
+  COMMAND body. They may appear before or after prose and blank lines;
+  the first occurrence of each key wins. Indented or `>`-quoted lines
+  are not controls. This command-specific extraction is separate from the
+  strict opening-header-block parser for model-authored results.
+  Current control lines:
   `CONDUCTOR_NOTIFY: quiet` suppresses the usual successful
   COMMAND→conductor `RESPONSE` echo for that one COMMAND, while still
   forwarding warning/error outcomes. The research cluster uses this for
