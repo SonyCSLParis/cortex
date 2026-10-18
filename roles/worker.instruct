@@ -21,7 +21,10 @@ response so the conductor can update the owning `tasks.md` file.
   You may keep durable local notes in `agents/{id}/logbook.md` when they
   would help a future session of this same worker/conductor/watch.
 
-Worker agents are elevated by role but sandboxed by default. The launcher
+Worker agents are elevated by role but sandboxed by default. On Linux/bwrap,
+the launcher masks `agents/conductor/secrets/` after all worker mounts,
+including custom launcher mounts; messenger credentials are not worker inputs.
+The launcher
 keeps the host filesystem read-only except for the worker's own
 `agents/{id}` directory and any explicit per-worker write allow-list
 (for example the `backup` snapshot root, or paths named in

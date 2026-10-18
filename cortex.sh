@@ -388,6 +388,12 @@ EOF
 cortex_worktree|repo_worktree|.
 EOF
 
+    local backup_mode
+    for backup_mode in repo_worktree source_tree path; do
+        cortex_bootstrap_write_if_missing "${env_dir}/backup_excludes/${backup_mode}.txt" \
+            < "${CORTEX_DIR}/templates/backup_excludes/${backup_mode}.txt" || return 1
+    done
+
     cortex_bootstrap_write_if_missing "${CONDUCTOR_DIR}/tasks.md" <<'EOF'
 # Conductor Tasks
 

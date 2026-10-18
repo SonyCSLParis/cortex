@@ -38,6 +38,10 @@ materially affect the checkout the user intends to run:
   snapshot destination, additional source coverage, and retention; store
   runtime overrides in `environments/{env}/settings.env` and coverage in its
   backup manifest.
+- Bootstrap copies `templates/backup_excludes/` into the environment without
+  replacing existing files. Review local exceptions there. Source-backup
+  modes exclude `.git/`; explain that Git history needs a separate remote
+  or explicit bare-repository backup target.
 - Ask whether a private operational Git remote should be configured now or
   later. The `commit` worker will not start until
   `CORTEX_DEFAULT_OPERATIONAL_REMOTE_URL` in the private environment settings

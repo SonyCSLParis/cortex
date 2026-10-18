@@ -91,6 +91,24 @@ security_bwrap_device_args() {
     named_array_append "${device_args_ref}" --dev /dev
 }
 
+# Workers may read the checkout, but conductor messenger credentials are not
+# worker inputs. Append these masks after ALL role/provider mounts so a broad
+# read or write bind cannot expose them again. Watch does not use this helper.
+security_bwrap_worker_secret_masks() {
+    local cortex_real="$1" masks_ref="$2"
+    local secret_path="${cortex_real}/agents/conductor/secrets" secret_real
+    named_array_clear "${masks_ref}"
+    [[ -e "${secret_path}" || -L "${secret_path}" ]] || return 0
+    secret_real="$(readlink_f_compat "${secret_path}")" || return 1
+    if [[ ! -d "${secret_real}" ]]; then
+        printf '%s\n' '[cortex] conductor secrets path is not a directory; refusing worker sandbox.' >&2
+        return 1
+    fi
+    # Mask the resolved target: bwrap mount destinations cannot be symlinks.
+    # Both the checkout link and any broad-read alias then reach the mask.
+    named_array_append "${masks_ref}" --tmpfs "${secret_real}" --remount-ro "${secret_real}"
+}
+
 security_bwrap_append_nvidia_device_binds() {
     local device_args_ref="$1"
     local device index

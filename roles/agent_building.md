@@ -116,7 +116,13 @@ Identity and grouping:
 Scheduling and health:
 
 - `META_cadence=disabled|short|hourly|6h|12h|daily`
-- `META_review_timeout=default|short`
+- `META_review_timeout=default|short|long|research`: maps through
+  `worker_meta_review_timeout_seconds` in `roles/worker.sh` to
+  `DEFAULT_WORKER_REVIEW_TIMEOUT_SECONDS`,
+  `DEFAULT_WORKER_REVIEW_TIMEOUT_SHORT_SECONDS`,
+  `DEFAULT_WORKER_REVIEW_TIMEOUT_LONG_SECONDS`, or
+  `DEFAULT_WORKER_REVIEW_TIMEOUT_RESEARCH_SECONDS`, respectively. An omitted
+  value uses `default`; the defaults are defined in `scripts/start_agent.sh`.
 - `META_selfcheck_interval=<seconds-or-0>`
 - `META_statusreport_interval=<seconds-or-0>`
 - `META_periodic_health=yes|no`

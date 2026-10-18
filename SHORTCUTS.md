@@ -166,7 +166,7 @@ shortcuts assume those variables are already loaded.
   ```bash
   bash scripts/start_agent_screen.sh --role node --name <name>
   bash scripts/start_agent_screen.sh --role worker --name <name>
-  WORKER_REVIEW_INTERVAL=<seconds> bash scripts/start_agent_screen.sh --role worker --name <name> --wake-seconds "${WORKER_REVIEW_INTERVAL}"
+  bash scripts/start_agent_screen.sh --role worker --name <name> --wake-seconds <seconds>
   bash scripts/start_agent_screen.sh --role watch   # interval from roles/watch.meta; add --wake-seconds N to override
   ```
 
@@ -290,7 +290,7 @@ follow.
 | `efficiency` | `bash scripts/start_agent_screen.sh --role worker --name efficiency` | every 6h | no | workflow inefficiencies: repeated conductor work, avoidable token burn, missing shortcuts |
 | `environment` | `bash scripts/start_agent_screen.sh --role worker --name environment` | daily | no | infrastructure ground-truth drift: cheat sheet vs ssh config; host/GPU/NAS/IP probes |
 | `memory` | `bash scripts/start_agent_screen.sh --role worker --name memory` | daily | no | hygiene of durable memory surfaces: stale/duplicate rows, orphaned logbook entries |
-| `metacortex` | `bash scripts/start_agent_screen.sh --role worker --name metacortex` | daily | no | philosophical self-reflection over Cortex as a whole; writes its treatise to own notes.txt on 24h cadence |
+| `metacortex` | `bash scripts/start_agent_screen.sh --role worker --name metacortex` | manual only | no | bounded on-demand reflection over Cortex as a whole; maintains own notes.txt |
 | `privacy` | `bash scripts/start_agent_screen.sh --role worker --name privacy` | daily | no | framework privacy boundary: concrete user/project/deployment details leaking into generic framework surfaces |
 | `reliability` | `bash scripts/start_agent_screen.sh --role worker --name reliability` | daily | no | runtime health: stuck loops, stale heartbeats, failed periodics, missing recovery recipes |
 | `security` | `bash scripts/start_agent_screen.sh --role worker --name security` | daily | no | security and sandbox posture: credential exposure, broad binds, permission drift |
@@ -423,6 +423,11 @@ follow.
   `environments/<env>/backup_targets.txt`, plus the sibling
   `environments/<env>/backup_excludes/*.txt` files, and runs
   `bash roles/operational/backup/backup_snapshot.sh` on its periodic cadence.
+- **Defaults**: bootstrap copies `templates/backup_excludes/` to a new
+  environment and fills missing mode files without replacing local edits.
+  Update existing environment files explicitly when adopting changed defaults.
+  Source modes exclude `.git/`; preserve repository history with a separate
+  remote or an explicit bare-repository target using `path` mode.
 - **Why / gotcha**: `backup` is intentionally source-oriented. The default manifest protects the Cortex worktree plus the concrete live source trees listed in the configured environment manifest; worktree-style backups materialize unsafe symlink targets as real content, so external trees reached through in-repo symlinks do not need separate redundant manifest entries. It still does **not** mirror large checkpoint/output trees by default, because that would explode storage under current disk pressure. Add those paths explicitly only when you mean it. Override `BACKUP_ROOT`, `BACKUP_KEEP`, or `BACKUP_TARGETS_FILE` at launch if needed, and use the environment notes for the current concrete backup roots/mirrors.
 - **Why / gotcha**: the launcher refuses to start this worker until the backup root is explicitly configured and the selected manifest contains an active target. Its `CONFIGURATION_REQUIRED` error names the missing setup action; have the user configure it before retrying.
 - **Last verified**: 2026-04-24.
@@ -523,19 +528,17 @@ follow.
 
 ### Starting the `metacortex` worker
 
-- **When**: you want Cortex to run one philosophical self-reflection cycle every
-  24 hours and maintain its own living treatise.
+- **When**: you want one bounded philosophical self-reflection cycle.
 - **Shortcut**:
 
   ```bash
-  bash scripts/start_agent_screen.sh --role worker --name metacortex
+  bash scripts/start_agent_screen.sh --role worker --name metacortex --once
   ```
 
-- **Why / gotcha**: `metacortex` is a named framework worker. Its default
-  cadence comes from `roles/framework/worker.metacortex.meta`; its durable
-  philosophical surface is `agents/metacortex/notes.txt`. Periodic wakes should
-  improve that notes file and report only a compact `CHECK: ok` response.
-- **Last verified**: 2026-05-26.
+- **Why / gotcha**: queue one explicit COMMAND before or just after launch.
+  The role-local launcher enforces one-shot mode and disables periodic reviews,
+  including when `--once` is omitted. Its durable reflection surface remains
+  `agents/metacortex/notes.txt`; existing notes are preserved.
 
 ### Worker periodic-check de-duplication
 

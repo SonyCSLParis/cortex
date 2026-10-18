@@ -1,0 +1,20 @@
+# Source-oriented Cortex backup defaults. Patterns without a parent path
+# match at any depth. Git history needs a separate remote or bare-repo backup.
+.git/
+.cache/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+node_modules/
+.nfs*
+*.swp
+*.swo
+
+# Cortex transient queues and provider state.
+broadcast/
+agents/*/codex_state/

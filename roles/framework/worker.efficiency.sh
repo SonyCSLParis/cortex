@@ -14,6 +14,8 @@ worker_efficiency_launch_codex() {
     fi
 
     local cortex_real; cortex_real="$(realpath "${CORTEX_DIR}" 2>/dev/null || printf '%s' "${CORTEX_DIR}")"
+    local -a worker_secret_masks=()
+    security_bwrap_worker_secret_masks "${cortex_real}" worker_secret_masks || return 1
     local efficiency_agent_dir="${cortex_real}/agents/${AGENT_ID}"
     local efficiency_codex_home=""
     local efficiency_codex_bin=""
@@ -48,6 +50,7 @@ worker_efficiency_launch_codex() {
         --tmpfs /tmp \
         --bind "${efficiency_agent_dir}" "${efficiency_agent_dir}" \
         --bind "${efficiency_codex_home}" "${HOME}/.codex" \
+        "${worker_secret_masks[@]}" \
         --chdir "${cortex_real}" \
         "${efficiency_codex_bin}" exec --model "${CODEX_MODEL}" \
             -c "model_reasoning_effort=\"${CODEX_REASONING_EFFORT}\"" \

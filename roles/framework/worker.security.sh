@@ -14,6 +14,8 @@ worker_security_launch_claude() {
     fi
 
     local cortex_real; cortex_real="$(realpath "${CORTEX_DIR}" 2>/dev/null || printf '%s' "${CORTEX_DIR}")"
+    local -a worker_secret_masks=()
+    security_bwrap_worker_secret_masks "${cortex_real}" worker_secret_masks || return 1
     local security_agent_dir="${cortex_real}/agents/${AGENT_ID}"
     local claude_sandbox_dir; claude_sandbox_dir="$(mktemp -d)"
     local -a security_dir_args=()
@@ -50,6 +52,7 @@ worker_security_launch_claude() {
         "${security_claude_ipc_binds[@]}" \
         --bind "${security_agent_dir}" "${security_agent_dir}" \
         --bind "${claude_sandbox_dir}/session-env" "${HOME}/.claude/session-env" \
+        "${worker_secret_masks[@]}" \
         --chdir "${cortex_real}" \
         /bin/bash -lc 'exec "$@"' bash \
         "${security_claude_cmd[@]}" --dangerously-skip-permissions "${prompt}" 2>&1 \
@@ -70,6 +73,8 @@ worker_security_launch_codex() {
     fi
 
     local cortex_real; cortex_real="$(realpath "${CORTEX_DIR}" 2>/dev/null || printf '%s' "${CORTEX_DIR}")"
+    local -a worker_secret_masks=()
+    security_bwrap_worker_secret_masks "${cortex_real}" worker_secret_masks || return 1
     local security_agent_dir="${cortex_real}/agents/${AGENT_ID}"
     local security_codex_home=""
     local security_codex_bin=""
@@ -103,6 +108,7 @@ worker_security_launch_codex() {
         --tmpfs /tmp \
         --bind "${security_agent_dir}" "${security_agent_dir}" \
         --bind "${security_codex_home}" "${HOME}/.codex" \
+        "${worker_secret_masks[@]}" \
         --chdir "${cortex_real}" \
         "${security_codex_bin}" exec --model "${CODEX_MODEL}" \
             -c "model_reasoning_effort=\"${CODEX_REASONING_EFFORT}\"" \

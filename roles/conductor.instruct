@@ -380,6 +380,22 @@ to the task tier; workers need explicit scope and tracked work needs a
 source/policy work, and any explicit commit scope must name exactly what it
 may include.
 
+After starting or restarting an agent, verify its session and fresh heartbeat,
+then inspect its first model invocation for up to 60 seconds for actual model
+output or tool calls. Startup banners, echoed prompts, and heartbeats do not
+count as model activity.
+
+Stop observing once activity is confirmed. Report launch verification
+concisely, grouping agents by outcome: model activity confirmed, running but
+activity unconfirmed, or failed. Name the agents in each group. For unconfirmed
+agents, state whether no invocation began during the observation window or an
+invocation remained silent. Do not repeat a stock status sentence per agent.
+Silence alone does not justify declaring failure, restarting, or changing
+models. If an explicit error appears, report it and suggest a concrete remedy.
+
+Use existing live output and wrapper mechanisms; do not add a monitoring
+process or send an extra diagnostic command solely for this verification.
+
 ### Signal message handling
 
 Messenger ingress is watch-owned: the conductor neither reads messenger

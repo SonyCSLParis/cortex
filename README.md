@@ -357,7 +357,7 @@ Start a named worker:
 
 ```bash
 bash scripts/start_agent_screen.sh --role worker --name commit --provider codex
-WORKER_REVIEW_INTERVAL=<seconds> bash scripts/start_agent_screen.sh --role worker --name cleanup --wake-seconds "${WORKER_REVIEW_INTERVAL}"
+bash scripts/start_agent_screen.sh --role worker --name cleanup --wake-seconds <seconds>
 ```
 
 If a worker should fall back to another provider after quota/auth failures,
@@ -578,7 +578,7 @@ These workers are analysis-first by default: they inspect one framework/runtime 
 | `efficiency` | persistent | every 6h | no | workflow inefficiencies: repeated conductor work, avoidable token burn, missing shortcuts |
 | `environment` | persistent | daily | no | infrastructure ground-truth drift: cheat sheet vs ssh config; host/GPU/NAS/IP probes |
 | `memory` | persistent | daily | no | hygiene of durable memory surfaces: stale/duplicate rows, orphaned logbook entries |
-| `metacortex` | persistent | daily | no | philosophical self-reflection over Cortex as a whole; writes its treatise to own notes.txt on 24h cadence |
+| `metacortex` | on-demand | manual only | no | bounded on-demand reflection over Cortex as a whole; maintains own notes.txt |
 | `privacy` | persistent | daily | no | framework privacy boundary: concrete user/project/deployment details leaking into generic framework surfaces |
 | `reliability` | persistent | daily | no | runtime health: stuck loops, stale heartbeats, failed periodics, missing recovery recipes |
 | `security` | persistent | daily | no | security and sandbox posture: credential exposure, broad binds, permission drift |

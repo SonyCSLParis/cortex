@@ -25,6 +25,8 @@ worker_compressor_launch_claude() {
     fi
 
     local cortex_real; cortex_real="$(realpath "${CORTEX_DIR}" 2>/dev/null || printf '%s' "${CORTEX_DIR}")"
+    local -a worker_secret_masks=()
+    security_bwrap_worker_secret_masks "${cortex_real}" worker_secret_masks || return 1
     local claude_sandbox_dir; claude_sandbox_dir="$(mktemp -d)"
     mkdir -p "${claude_sandbox_dir}/session-env"
     local -a claude_cmd=(claude --print --verbose --effort "${CLAUDE_EFFORT}")
@@ -54,6 +56,7 @@ worker_compressor_launch_claude() {
         --tmpfs /tmp \
         "${compressor_rw_binds[@]}" \
         --bind "${claude_sandbox_dir}/session-env" "${HOME}/.claude/session-env" \
+        "${worker_secret_masks[@]}" \
         --chdir "${cortex_real}" \
         "${claude_cmd[@]}" --dangerously-skip-permissions "${prompt}" 2>&1 \
         | tee "${working_file}" \
@@ -73,6 +76,8 @@ worker_compressor_launch_codex() {
     fi
 
     local cortex_real; cortex_real="$(realpath "${CORTEX_DIR}" 2>/dev/null || printf '%s' "${CORTEX_DIR}")"
+    local -a worker_secret_masks=()
+    security_bwrap_worker_secret_masks "${cortex_real}" worker_secret_masks || return 1
     local compressor_codex_home=""
     local compressor_codex_bin=""
     local -a compressor_rw_binds=()
@@ -111,6 +116,7 @@ worker_compressor_launch_codex() {
         --tmpfs /tmp \
         "${compressor_rw_binds[@]}" \
         --bind "${compressor_codex_home}" "${HOME}/.codex" \
+        "${worker_secret_masks[@]}" \
         --chdir "${cortex_real}" \
         "${compressor_codex_bin}" exec --model "${CODEX_MODEL}" \
             -c "model_reasoning_effort=\"${CODEX_REASONING_EFFORT}\"" \

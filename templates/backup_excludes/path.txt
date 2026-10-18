@@ -1,0 +1,3 @@
+# Explicit whole-path backups retain caches, dependencies and Git history.
+# Only transient NFS files are excluded by default.
+.nfs*

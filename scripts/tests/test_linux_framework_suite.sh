@@ -1869,6 +1869,8 @@ run_step "worker sandbox backend resolution" test_linux_worker_sandbox_resolutio
 run_step "nvm PATH bootstrap" test_start_agent_nvm_path_bootstrap
 run_step "Linux worker dispatch" test_linux_worker_dispatch
 run_step "security bwrap dir args" test_security_bwrap_dir_args
+run_step "worker credential masks" bash "${CORTEX_DIR}/scripts/tests/test_worker_secret_masks.sh"
+run_step "backup default provisioning and selection" python3 "${CORTEX_DIR}/scripts/tests/test_backup_defaults.py"
 run_step "provider nonzero structured output" test_provider_nonzero_structured_output
 run_step "conductor envelope header neutralization" test_conductor_envelope_header_neutralization
 run_step "rotate_logbook no-preamble rotation" test_rotate_logbook_no_preamble

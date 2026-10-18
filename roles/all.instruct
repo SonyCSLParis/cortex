@@ -179,6 +179,15 @@ unless a role-specific response contract requires them.
 
 ---
 
+## Reproducible caches
+
+Put reproducible caches under a `.cache/` directory. If a workflow requires
+another cache location, add a narrow exclusion to the owning environment's
+backup exclusions in the same change. Preserve non-reproducible results and
+artifacts; do not classify a whole results/artifacts tree as a cache.
+
+---
+
 ## Long-lived work output
 
 Keep output visible in any long-lived session. If a logfile is also needed,
