@@ -81,6 +81,7 @@ def summarize(rows: list[dict[str, str]]) -> dict[str, object]:
     estimated_rows = 0
     no_usage_rows = 0
     unknown_price_rows = 0
+    priced_rows = 0
     rejected_rows = 0
     voided_rows = 0
     by_model: dict[tuple[str, str], dict[str, float]] = {}
@@ -115,15 +116,20 @@ def summarize(rows: list[dict[str, str]]) -> dict[str, object]:
         cost_text = row.get("estimated_usd") or ""
         try:
             cost = float(cost_text) if cost_text else 0.0
+            priced = bool(cost_text)
         except ValueError:
             cost = 0.0
+            priced = False
         estimated_usd += cost
+        if priced:
+            priced_rows += 1
 
         key = (row.get("provider") or "unknown", row.get("model") or "unknown")
-        slot = by_model.setdefault(key, {"calls": 0, "tokens": 0, "usd": 0.0})
+        slot = by_model.setdefault(key, {"calls": 0, "tokens": 0, "usd": 0.0, "priced": 0})
         slot["calls"] += 1
         slot["tokens"] += tokens
         slot["usd"] += cost
+        slot["priced"] += 1 if priced else 0
 
     return {
         "calls": calls,
@@ -132,10 +138,22 @@ def summarize(rows: list[dict[str, str]]) -> dict[str, object]:
         "estimated_rows": estimated_rows,
         "no_usage_rows": no_usage_rows,
         "unknown_price_rows": unknown_price_rows,
+        "priced_rows": priced_rows,
         "rejected_rows": rejected_rows,
         "voided_rows": voided_rows,
         "by_model": by_model,
     }
+
+
+def money(usd: float, priced_rows: int) -> str:
+    """Render a cost, or n/a when no row in the slice carried a price.
+
+    Summing an unpriced row as 0.0 and printing the total would state a
+    confident $0.0000 for spend we simply cannot compute, so say so instead.
+    """
+    if priced_rows == 0:
+        return "n/a"
+    return f"${usd:.4f}"
 
 
 def quiet_line(summary: dict[str, object], label: str, ledger: Path) -> str:
@@ -164,7 +182,8 @@ def quiet_line(summary: dict[str, object], label: str, ledger: Path) -> str:
     if voided_rows:
         caveats.append(f"{voided_rows} voided-misattributed")
     suffix = f" ({', '.join(caveats)})" if caveats else ""
-    return f"Usage {label}: {calls} calls, {compact_tokens(total_tokens)} tokens, est. ${usd:.4f}{suffix}."
+    cost_text = money(usd, int(summary["priced_rows"]))
+    return f"Usage {label}: {calls} calls, {compact_tokens(total_tokens)} tokens, est. {cost_text}{suffix}."
 
 
 def main() -> int:
@@ -196,7 +215,8 @@ def main() -> int:
         ):
             print(
                 f"- {provider}/{model}: {int(values['calls'])} calls, "
-                f"{compact_tokens(int(values['tokens']))} tokens, est. ${values['usd']:.4f}"
+                f"{compact_tokens(int(values['tokens']))} tokens, "
+                f"est. {money(values['usd'], int(values['priced']))}"
             )
     return 0
 

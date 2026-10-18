@@ -47,6 +47,10 @@ while read -r price_provider price_model expected_input_price expected_output_pr
         fail=1
     fi
 done <<'PRICES'
+codex gpt-6-astra 10 50
+codex gpt-6.1-sol 2 10
+codex gpt-6-sol 2 10
+codex gpt-6-luna 0.1 0.5
 codex gpt-5.6 4 20
 codex gpt-5.6-sol 4 20
 codex gpt-5.6-terra 2 12
@@ -58,6 +62,20 @@ claude claude-sonnet-5 2 10
 claude claude-opus-4-8 5 25
 claude claude-haiku-4-5-20251001 1 5
 PRICES
+
+# Cache reads are not a fixed 10% of the input price on every model.
+while read -r cr_provider cr_model expected_mult; do
+    actual_mult="$(cortex_usage_cache_read_multiplier "${cr_provider}" "${cr_model}")"
+    if [[ "${actual_mult}" != "${expected_mult}" ]]; then
+        echo "FAIL: ${cr_provider} ${cr_model} cache-read multiplier expected '${expected_mult}' but got '${actual_mult}'" >&2
+        fail=1
+    fi
+done <<'CACHE_RATES'
+codex gpt-6.1-sol 0.05
+codex gpt-6-luna 0.1
+claude claude-fable-5-1 0.025
+claude claude-opus-5 0.1
+CACHE_RATES
 
 # 2) Recording path: feed a fake transcript containing only a poisoned total.
 workdir="$(mktemp -d)"

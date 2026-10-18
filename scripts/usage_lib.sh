@@ -56,6 +56,10 @@ cortex_usage_price_pair() {
     local provider="$1" model="$2" key
     key="$(printf '%s:%s' "${provider}" "${model}" | tr '[:upper:]' '[:lower:]')"
     case "${key}" in
+        codex:gpt-6-astra|openai:gpt-6-astra) printf '10 50' ;;
+        codex:gpt-6.1-sol|openai:gpt-6.1-sol) printf '2 10' ;;
+        codex:gpt-6-sol|openai:gpt-6-sol) printf '2 10' ;;
+        codex:gpt-6-luna|openai:gpt-6-luna) printf '0.1 0.5' ;;
         codex:gpt-5.6|openai:gpt-5.6|codex:gpt-5.6-sol|openai:gpt-5.6-sol) printf '4 20' ;;
         codex:gpt-5.6-terra|openai:gpt-5.6-terra) printf '2 12' ;;
         codex:gpt-5.6-luna|openai:gpt-5.6-luna) printf '0.2 1.2' ;;
@@ -135,24 +139,26 @@ cortex_usage_extract_first_match() {
 
 cortex_usage_estimate() {
     local provider="$1" model="$2" input_tokens="$3" cached_tokens="$4" output_tokens="$5" total_tokens="$6"
-    local prices input_price output_price
+    local prices input_price output_price cr_mult
     prices="$(cortex_usage_price_pair "${provider}" "${model}" 2>/dev/null || true)"
     [[ -n "${prices}" ]] || return 1
     read -r input_price output_price <<< "${prices}"
+    cr_mult="$(cortex_usage_cache_read_multiplier "${provider}" "${model}")"
     awk \
         -v in_tok="${input_tokens:-}" \
         -v cached_tok="${cached_tokens:-}" \
         -v out_tok="${output_tokens:-}" \
         -v total_tok="${total_tokens:-}" \
         -v in_price="${input_price}" \
-        -v out_price="${output_price}" '
+        -v out_price="${output_price}" \
+        -v cr_mult="${cr_mult}" '
         BEGIN {
             has_split = (in_tok ~ /^[0-9]+$/) || (cached_tok ~ /^[0-9]+$/) || (out_tok ~ /^[0-9]+$/)
             if (has_split) {
                 in_n = (in_tok ~ /^[0-9]+$/) ? in_tok : 0
                 cached_n = (cached_tok ~ /^[0-9]+$/) ? cached_tok : 0
                 out_n = (out_tok ~ /^[0-9]+$/) ? out_tok : 0
-                cost = ((in_n * in_price) + (cached_n * in_price * 0.1) + (out_n * out_price)) / 1000000
+                cost = ((in_n * in_price) + (cached_n * in_price * cr_mult) + (out_n * out_price)) / 1000000
                 printf "%.6f\texact_or_split", cost
                 exit
             }
@@ -459,12 +465,14 @@ PY
 }
 
 # Cache-read price as a fraction of the input price. Default 0.1; Fable 5.1 /
-# Mythos 5.1 bill cache reads at $0.25/MTok on a $10 input price.
+# Mythos 5.1 bill cache reads at $0.25/MTok on a $10 input price, and
+# gpt-6.1-sol bills them at $0.10/MTok on a $2 input price.
 cortex_usage_cache_read_multiplier() {
     local key
     key="$(printf '%s:%s' "$1" "$2" | tr '[:upper:]' '[:lower:]')"
     case "${key}" in
         claude:claude-fable-5-1*|anthropic:claude-fable-5-1*|claude:claude-mythos-5-1*|anthropic:claude-mythos-5-1*) printf '0.025' ;;
+        codex:gpt-6.1-sol|openai:gpt-6.1-sol) printf '0.05' ;;
         *) printf '0.1' ;;
     esac
 }

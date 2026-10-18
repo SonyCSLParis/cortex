@@ -37,6 +37,7 @@ acting if something durable and non-obvious was learned.
 - [Checking a concise fleet snapshot](#checking-a-concise-fleet-snapshot)
 - [Healing safe periodic jobs](#healing-safe-periodic-jobs)
 - [Restarting the watch agent](#restarting-the-watch-agent)
+- [Keeping provider prices current and backfilling usage](#keeping-provider-prices-current-and-backfilling-usage)
 - [Handling large project files in git](#handling-large-project-files-in-git)
 - [Archiving old Done rows from a task board](#archiving-old-done-rows-from-a-task-board)
 - [Promoting generalized user rules into Cortex specs](#promoting-generalized-user-rules-into-cortex-specs)
@@ -638,6 +639,36 @@ follow.
 
 - **Why / gotcha**: do not pass `--watch` on restart — omitting it makes the watch agent reuse `agents/watch/watch.txt` verbatim, so custom instructions (e.g. "Signal every wake", "Telegram every wake", drunk-pirate tone, specific sweep focus) survive untouched. Restarts are still the right answer for config/provider issues, but they should no longer be needed just to refresh a stale launch-time `SSH_AUTH_SOCK`: watch now rebinds to a live local `ssh-agent` socket before each wake. Do not launch with a bare `&`; always wrap in `screen -dmS watch` to match the convention used at initial entry. Log the restart as a one-line `agents/conductor/log.md` entry; no central logbook entry (operational event). If a non-routine watch investigation needs a durable local note, it belongs in `agents/watch/logbook.md`.
 - **Last verified**: 2026-04-24.
+
+### Keeping provider prices current and backfilling usage
+
+- **When**: `python3 scripts/usage_report.py` reports `unknown-price` rows, or a
+  model-tier refresh (`CORTEX_DEFAULT_TIER_*_MODEL` in
+  `config/cortex_defaults.sh`) points agents at model ids the price table has
+  never seen. Model ids move faster than prices, so this recurs.
+- **Shortcut**:
+
+  ```bash
+  python3 scripts/usage_report.py --since 7d        # which models are unpriced
+  # add the ids to cortex_usage_price_pair in scripts/usage_lib.sh, plus
+  # cortex_usage_cache_read_multiplier when cache reads are not 10% of input
+  bash scripts/test_usage_capture_bounds.sh         # pricing assertions
+  bash scripts/usage_backfill_prices.sh             # dry run
+  bash scripts/usage_backfill_prices.sh --apply     # re-price the ledger
+  ```
+
+- **Why / gotcha**: fetch the rates from the provider's own pricing page rather
+  than recalling them. The backfill only touches `unknown_price` rows —
+  `no_usage_found` rows have no tokens to price, and rejected/voided rows are
+  excluded from totals by design — and it takes the ledger's `flock` so a
+  concurrent worker append is not lost. Back the ledger up first; the non-price
+  columns should come back byte-identical. **A slice in which no row carries a
+  price reports `est. n/a`, never `$0.0000`** — summing unpriced rows as zero
+  and printing the total states a confident figure for spend that was never
+  computed. Cache-read rates are not uniformly 10% of the input price
+  (`gpt-6.1-sol` is 5%, Fable 5.1 / Mythos 5.1 are 2.5%), and on cache-heavy
+  interactive sessions that factor dominates the bill.
+- **Last verified**: 2026-10-18.
 
 ### Handling large project files in git
 
