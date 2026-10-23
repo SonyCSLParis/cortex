@@ -170,7 +170,7 @@ def quiet_line(summary: dict[str, object], label: str, ledger: Path) -> str:
     unknown_price_rows = int(summary["unknown_price_rows"])
     rejected_rows = int(summary["rejected_rows"])
     voided_rows = int(summary["voided_rows"])
-    caveats = []
+    caveats = ["short-context Standard API-equivalent; context/tier adjustments excluded"]
     if estimated_rows:
         caveats.append(f"{estimated_rows} split-estimated")
     if unknown_price_rows:
@@ -209,7 +209,7 @@ def main() -> int:
     by_model = summary["by_model"]
     if by_model:
         print()
-        print("By provider/model:")
+        print("By provider/model (same pricing basis):")
         for (provider, model), values in sorted(
             by_model.items(), key=lambda item: (-item[1]["usd"], -item[1]["tokens"], item[0])
         ):

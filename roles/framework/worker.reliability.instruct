@@ -29,7 +29,7 @@ actionable.
 
 Typical useful sources:
 
-- `bash scripts/cortex_ops_snapshot.sh --all`
+- `bash scripts/cortex_ops_snapshot.sh`
 - `bash scripts/periodics_check.sh status`
 - `agents/*/heartbeat`, `agents/*/status`, and
   `agents/*/status_latest.snapshot`

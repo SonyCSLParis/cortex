@@ -70,6 +70,7 @@ run_test "selfcheck alert dedup smoke"         0 bash scripts/test_selfcheck_ale
 run_test "usage capture bounds smoke"          0 bash scripts/test_usage_capture_bounds.sh
 run_test "usage backfill portability"          0 python3 scripts/tests/test_usage_backfill_portability.py
 run_test "usage ledger concurrency"            0 python3 scripts/tests/test_usage_ledger_locking.py
+run_test "provider failures and transcript identity" 0 python3 "${SCRIPT_DIR}/test_provider_transcript_isolation.py"
 run_test "cortex_doctor invariants"            1 bash scripts/cortex_doctor.sh
 
 if (( FULL )); then

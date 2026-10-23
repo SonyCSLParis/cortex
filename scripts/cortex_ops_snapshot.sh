@@ -169,8 +169,10 @@ format_agent_status() {
 }
 
 state_file_value() {
-    local file="$1" key="$2"
-    awk -F= -v key="${key}" '$1 == key {
+    local file="$1" key="$2" provider="${3:-}"
+    awk -F= -v key="${key}" -v provider="${provider}" '
+    $1 == "provider" { current = $2 }
+    (provider == "" || current == provider) && $1 == key {
         sub(/^[^=]*=/, "")
         gsub(/^"/, "")
         gsub(/"$/, "")
@@ -182,22 +184,27 @@ state_file_value() {
 provider_cooldown_summary() {
     local agent_id="$1"
     local state_file="agents/${agent_id}/provider_failure_state"
-    local until_epoch provider reason retry_hint until_iso remaining
+    local until_epoch provider reason retry_hint until_iso remaining separator="" found=0
 
     [[ -f "${state_file}" ]] || return 1
-    until_epoch="$(state_file_value "${state_file}" until_epoch)"
-    [[ "${until_epoch}" =~ ^[0-9]+$ ]] || return 1
-    (( until_epoch > now )) || return 1
+    while IFS= read -r provider; do
+        [[ -n "${provider}" ]] || continue
+        until_epoch="$(state_file_value "${state_file}" until_epoch "${provider}")"
+        [[ "${until_epoch}" =~ ^[0-9]+$ ]] || continue
+        (( until_epoch > now )) || continue
 
-    provider="$(state_file_value "${state_file}" provider)"
-    reason="$(state_file_value "${state_file}" reason)"
-    retry_hint="$(state_file_value "${state_file}" retry_hint)"
-    until_iso="$(state_file_value "${state_file}" until_iso)"
-    remaining="$(compact_age "$(( until_epoch - now ))")"
+        reason="$(state_file_value "${state_file}" reason "${provider}")"
+        retry_hint="$(state_file_value "${state_file}" retry_hint "${provider}")"
+        until_iso="$(state_file_value "${state_file}" until_iso "${provider}")"
+        remaining="$(compact_age "$(( until_epoch - now ))")"
 
-    printf '%s %s cooldown for %s, retry hint: %s' \
-        "${provider:-provider}" "${reason:-unknown}" "${remaining}" "${retry_hint:-none}"
-    [[ -n "${until_iso}" ]] && printf ' (until %s)' "${until_iso}"
+        printf '%s%s %s cooldown for %s, retry hint: %s' \
+            "${separator}" "${provider}" "${reason:-unknown}" "${remaining}" "${retry_hint:-none}"
+        [[ -n "${until_iso}" ]] && printf ' (until %s)' "${until_iso}"
+        separator="; "
+        found=1
+    done < <(awk -F= '$1 == "provider" { print $2 }' "${state_file}")
+    (( found ))
 }
 
 snapshot_worker_id() {

@@ -1527,9 +1527,9 @@ test_linux_source_guards() {
         || fail "cortex.sh lost the util-linux script -c branch"
     grep -Fq "script -q -e \"\${usage_file}\" \"\${command[@]}\"" "${CORTEX_DIR}/cortex.sh" \
         || fail "cortex.sh lost the BSD script fallback branch"
-    grep -Fq "timeout_cmd=(timeout --preserve-status --kill-after=30s \"\${timeout_secs}\")" "${CORTEX_DIR}/scripts/start_agent.sh" \
+    grep -Fq "timeout_cmd=(env LC_MESSAGES=C timeout --verbose --kill-after=30s \"\${timeout_secs}\")" "${CORTEX_DIR}/scripts/start_agent.sh" \
         || fail "scripts/start_agent.sh lost the GNU timeout branch"
-    grep -Fq "timeout_cmd=(gtimeout --preserve-status --kill-after=30s \"\${timeout_secs}\")" "${CORTEX_DIR}/scripts/start_agent.sh" \
+    grep -Fq "timeout_cmd=(env LC_MESSAGES=C gtimeout --verbose --kill-after=30s \"\${timeout_secs}\")" "${CORTEX_DIR}/scripts/start_agent.sh" \
         || fail "scripts/start_agent.sh lost the gtimeout fallback branch"
     ! grep -RInE \
         --exclude='session_backend.sh' \
@@ -1827,6 +1827,80 @@ run_existing_deterministic_checks() {
     bash "${CORTEX_DIR}/scripts/cortex_doctor.sh" --check worker-meta
 }
 
+test_gpu_status_configured_delay() {
+    python3 - "${CORTEX_DIR}" <<'PYGPU'
+from pathlib import Path
+import contextlib
+import io
+import subprocess
+import sys
+from unittest.mock import patch
+
+root = Path(sys.argv[1])
+source = (root / 'scripts/start_agent.sh').read_text()
+function = source.split('collect_gpu_status_line() {', 1)[1].split('\n}\n', 1)[0]
+code = function.split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+assert '"${CORTEX_DEFAULT_GPU_IDLE_RECHECK_SECONDS}"' in function
+for delay in ('1', '30'):
+    samples = ['0, 0, 100, 1000\n', '0, 65, 200, 1000\n']
+    output = io.StringIO()
+    with patch.object(sys, 'argv', ['-', delay]), \
+         patch('subprocess.check_output', side_effect=samples) as probe, \
+         patch('time.sleep') as sleep, contextlib.redirect_stdout(output):
+        exec(compile(code, '<gpu-status>', 'exec'), {})
+    sleep.assert_called_once_with(float(delay))
+    assert probe.call_count == 2
+    assert '65 %' in output.getvalue(), output.getvalue()
+with patch.object(sys, 'argv', ['-', '1']), \
+     patch('subprocess.check_output', return_value='0, 70, 200, 1000\n') as probe, \
+     patch('time.sleep') as sleep, contextlib.redirect_stdout(io.StringIO()):
+    exec(compile(code, '<gpu-status>', 'exec'), {})
+    sleep.assert_not_called()
+    assert probe.call_count == 1
+print('ok: configured GPU delay and higher-of-two samples; busy GPU skips waiting')
+PYGPU
+}
+
+test_framework_manifest_defaults() {
+    CORTEX_DIR="${CORTEX_DIR}" bash <<'PYDEFAULTS'
+set -euo pipefail
+source "${CORTEX_DIR}/scripts/bash_compat.sh"
+source "${CORTEX_DIR}/config/cortex_defaults.sh"
+source <(sed -n '/^DEFAULT_WORKER_REVIEW_INTERVAL_DISABLED=/,/^DEFAULT_WORKER_REVIEW_TIMEOUT_RESEARCH_SECONDS=/p' "${CORTEX_DIR}/scripts/start_agent.sh")
+source "${CORTEX_DIR}/roles/worker.sh"
+apply_model_tier() { RESOLVED_TIER="$1"; }
+for AGENT_ID in calibration consistency memory privacy reliability efficiency; do
+    for mode in default override; do
+        AGENT_ROLE=worker
+        AGENT_PROVIDER=claude
+        AGENT_PROVIDER_EXPLICIT=0
+        CLAUDE_EFFORT_EXPLICIT=0
+        CODEX_REASONING_EFFORT_EXPLICIT=0
+        WORKER_REVIEW_INTERVAL=''
+        WORKER_REVIEW_TIMEOUT="${DEFAULT_WORKER_REVIEW_TIMEOUT_SECONDS}"
+        expected_timeout="${DEFAULT_WORKER_REVIEW_TIMEOUT_LONG_SECONDS}"
+        [[ "${AGENT_ID}" != efficiency ]] || expected_timeout="${DEFAULT_WORKER_REVIEW_TIMEOUT_SECONDS}"
+        if [[ "${mode}" == override ]]; then
+            AGENT_PROVIDER_EXPLICIT=1
+            WORKER_REVIEW_INTERVAL=77
+            WORKER_REVIEW_TIMEOUT=88
+        fi
+        worker_apply_defaults
+        [[ "${RESOLVED_TIER}" == medium ]]
+        if [[ "${mode}" == default ]]; then
+            [[ "${AGENT_PROVIDER}" == codex ]]
+            [[ "${WORKER_REVIEW_INTERVAL}" == "${DEFAULT_WORKER_REVIEW_INTERVAL_DAILY}" ]]
+            [[ "${WORKER_REVIEW_TIMEOUT}" == "${expected_timeout}" ]]
+        else
+            [[ "${AGENT_PROVIDER}" == claude ]]
+            [[ "${WORKER_REVIEW_INTERVAL}" == 77 && "${WORKER_REVIEW_TIMEOUT}" == 88 ]]
+        fi
+    done
+done
+printf 'ok: manifest-only defaults and explicit overrides for six framework reviewers\n'
+PYDEFAULTS
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --with-live-smoke)
@@ -1865,6 +1939,8 @@ run_step "require Linux host" require_linux
 run_step "worker sandbox backend resolution" test_linux_worker_sandbox_resolution
 run_step "nvm PATH bootstrap" test_start_agent_nvm_path_bootstrap
 run_step "Linux worker dispatch" test_linux_worker_dispatch
+run_step "framework manifest defaults" test_framework_manifest_defaults
+run_step "configured GPU resample delay" test_gpu_status_configured_delay
 run_step "security bwrap dir args" test_security_bwrap_dir_args
 run_step "worker credential masks" bash "${CORTEX_DIR}/scripts/tests/test_worker_secret_masks.sh"
 run_step "backup default provisioning and selection" python3 "${CORTEX_DIR}/scripts/tests/test_backup_defaults.py"
@@ -1872,6 +1948,7 @@ run_step "usage backfill portability" python3 "${CORTEX_DIR}/scripts/tests/test_
 run_step "usage ledger concurrent writers and backfill" python3 "${CORTEX_DIR}/scripts/tests/test_usage_ledger_locking.py"
 run_step "response parsing, logging controls, configuration diagnostics" python3 "${CORTEX_DIR}/scripts/tests/test_control_plane_hardening.py"
 run_step "provider nonzero structured output" test_provider_nonzero_structured_output
+run_step "provider failures and transcript identity" python3 "${CORTEX_DIR}/scripts/tests/test_provider_transcript_isolation.py"
 run_step "conductor envelope header neutralization" test_conductor_envelope_header_neutralization
 run_step "rotate_logbook no-preamble rotation" test_rotate_logbook_no_preamble
 run_step "rotate_logbook duplicate-history guard" test_rotate_logbook_duplicate_history_guard

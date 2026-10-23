@@ -27,7 +27,15 @@ for directory in paths:
         os.close(fd)
         raise SystemExit('FAIL: dummy credential could be opened')
 assert (root/'ordinary.txt').read_text().strip() == 'ordinary fixture'
-(root/'agents'/os.environ['AGENT_ID']/'probe-result.txt').write_text('ok')
+if os.environ.get('TEST_NODE_READ_ONLY') == '1':
+    try:
+        (root/'ordinary.txt').write_text('unexpected write')
+    except (OSError, PermissionError):
+        pass
+    else:
+        raise SystemExit('FAIL: node checkout is writable')
+else:
+    (root/'agents'/os.environ['AGENT_ID']/'probe-result.txt').write_text('ok')
 print('dummy credential opens blocked; ordinary read and own-dir write work')
 PROBE
 CLI
@@ -36,6 +44,7 @@ ln -s codex "${fixture}/bin/claude"
 export PATH="${fixture}/bin:${PATH}"
 source "${TEST_SOURCE_ROOT}/scripts/bash_compat.sh"
 source "${TEST_SOURCE_ROOT}/roles/sandbox.sh"
+source "${TEST_SOURCE_ROOT}/roles/node.sh"
 source "${TEST_SOURCE_ROOT}/roles/worker.common.sh"
 source "${TEST_SOURCE_ROOT}/roles/framework/worker.security.sh"
 source "${TEST_SOURCE_ROOT}/roles/framework/worker.efficiency.sh"
@@ -69,19 +78,25 @@ run_with_array_prefix() {
     printf '%s\0' "$@" > "${fixture}/argv"
     "$@"
 }
+cortex_usage_new_claude_session_id() { :; }
 CLAUDE_EFFORT=medium
 CLAUDE_MODEL=dummy
 CODEX_MODEL=dummy
 CODEX_REASONING_EFFORT=medium
 timeout_cmd=()
-launchers=(worker_launch_codex_generic worker_launch_claude_generic worker_security_launch_codex worker_security_launch_claude worker_efficiency_launch_codex worker_compressor_launch_codex worker_compressor_launch_claude)
+launchers=(worker_launch_codex_generic worker_launch_claude_generic worker_security_launch_codex worker_security_launch_claude worker_efficiency_launch_codex worker_compressor_launch_codex worker_compressor_launch_claude node_run_provider_cli)
 for layout in directory symlink; do
     if [[ "${layout}" == symlink ]]; then
         mv "${fixture}/agents/conductor/secrets" "${fixture}/outside-secrets"
         ln -s "${fixture}/outside-secrets" "${fixture}/agents/conductor/secrets"
     fi
     for launcher in "${launchers[@]}"; do
-        if [[ "${launcher}" == *claude* ]]; then
+        export TEST_NODE_READ_ONLY=0
+        if [[ "${launcher}" == node_run_provider_cli ]]; then
+            export TEST_NODE_READ_ONLY=1
+            AGENT_PROVIDER=claude
+            "${launcher}" probe "${fixture}/working" "${fixture}/out" "${fixture}/last" timeout_cmd >"${fixture}/probe.log" 2>&1 || { cat "${fixture}/probe.log"; exit 1; }
+        elif [[ "${launcher}" == *claude* ]]; then
             "${launcher}" probe "${fixture}/working" "${fixture}/out" timeout_cmd >"${fixture}/probe.log" 2>&1 || { cat "${fixture}/probe.log"; exit 1; }
         else
             "${launcher}" probe "${fixture}/working" "${fixture}/out" "${fixture}/last" timeout_cmd >"${fixture}/probe.log" 2>&1 || { cat "${fixture}/probe.log"; exit 1; }
@@ -100,4 +115,4 @@ ORDER
         printf 'PASS: %s (%s)\n' "${launcher}" "${layout}"
     done
 done
-printf 'PASS: all 14 sandbox credential-isolation probes\n'
+printf 'PASS: all 16 sandbox credential-isolation probes\n'

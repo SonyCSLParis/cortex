@@ -288,7 +288,7 @@ follow.
 | --- | --- | --- | --- | --- |
 | `calibration` | `bash scripts/start_agent_screen.sh --role worker --name calibration` | daily | no | per-agent behavior-vs-instruction drift; proposes targeted instruction edits |
 | `consistency` | `bash scripts/start_agent_screen.sh --role worker --name consistency` | daily | no | ownership-boundary drift: project facts in wrong files, duplicated rules across layers |
-| `efficiency` | `bash scripts/start_agent_screen.sh --role worker --name efficiency` | every 6h | no | workflow inefficiencies: repeated conductor work, avoidable token burn, missing shortcuts |
+| `efficiency` | `bash scripts/start_agent_screen.sh --role worker --name efficiency` | daily | no | workflow inefficiencies: repeated conductor work, avoidable token burn, missing shortcuts |
 | `environment` | `bash scripts/start_agent_screen.sh --role worker --name environment` | daily | no | infrastructure ground-truth drift: cheat sheet vs ssh config; host/GPU/NAS/IP probes |
 | `memory` | `bash scripts/start_agent_screen.sh --role worker --name memory` | daily | no | hygiene of durable memory surfaces: stale/duplicate rows, orphaned logbook entries |
 | `metacortex` | `bash scripts/start_agent_screen.sh --role worker --name metacortex` | manual only | no | bounded on-demand reflection over Cortex as a whole; maintains own notes.txt |
@@ -360,8 +360,11 @@ follow.
   bash scripts/cortex_ops_snapshot.sh
   ```
 
-  Add `--all` when you want the full fleet dump, including intentionally inactive agents.
-- **Why / gotcha**: default mode is intentionally quiet. It suppresses agents inactive for more than 1 day unless `agents/watch/watch.txt` names them as expected-up. Unread inbox backlog only keeps an inactive agent visible when the newest unread message is itself fresh (<=1 day old); the output now shows that newest-message age inline so real backlog stands out from stale residue. It also suppresses stale transient smoke-agent homes (`manual-smoke-*`, `smoke-worker-*`) once they have been inactive for at least 1 hour, so failed one-shot test residue does not keep polluting normal status overviews. If you are auditing historical residue or stale agent homes, use `--all` rather than assuming the default view is exhaustive.
+  For exhaustive agent inspection, including inactive agents, use
+  `bash scripts/living_agent_roster.sh --all`.
+- **Why / gotcha**: the snapshot summarizes urgent items, tasks, periodic
+  health, core operational workers, and active work; it is not an exhaustive
+  agent roster and does not support `--all`.
 - **Last verified**: 2026-05-03.
 
 ### Healing safe periodic jobs
@@ -379,17 +382,14 @@ follow.
 
 ### Starting the `efficiency` worker
 
-- **When**: you want a long-lived non-destructive worker that periodically audits Cortex itself for inefficiency, token waste, queueing/logging friction, observability gaps, over-specific or redundant framework structure that should be generalized, agent-communication patterns where better standing instructions would beat over-specified messages, agent context bundles/prompts that are larger than they need to be, and complexity creep such as extra abstractions, duplicate control paths, operator-surface growth, background automation churn, and stale machinery that should be removed.
-- **Shortcut**:
+See the [named worker launch matrix](#named-worker-launch-matrix) for the
+launch command, defaults, and domain. Explicit `--wake-seconds` overrides
+its manifest cadence; Claude requires explicit `--provider claude`.
 
-  ```bash
-  bash scripts/start_agent_screen.sh --role worker --name efficiency
-  ```
-
-  `roles/framework/worker.efficiency.instruct` is appended automatically because the worker id is `efficiency`.
-- **Why / gotcha**: `efficiency` is still a `worker`, but its override narrows behavior back to analysis-only unless the conductor explicitly commands implementation. Its Codex path now stays inside the launcher `bwrap`, keeps only `agents/efficiency/` writable, and stages a minimal per-run `CODEX_HOME` in a private temp dir instead of mounting the full real `~/.codex` tree or writing auth into `agents/efficiency/`. Its sole durable memory is `agents/efficiency/logbook.md`; `agents/efficiency/log.md` is operational only. Its default periodic cadence comes from `roles/framework/worker.efficiency.meta` (`META_cadence=6h`), unless you override it at launch. Claude remains available only via explicit `--provider claude`.
-- **Check output**: periodic checks should write concrete tickets/trends to `agents/efficiency/logbook.md` and keep the conductor reply short: finished, status, and where the report was written.
-- **Last verified**: 2026-04-29.
+Its custom Codex launcher keeps only its agent directory writable and
+stages a minimal per-run Codex home. Keep staged authentication available
+until the provider exits. Tickets and trends belong in its local logbook;
+its conductor reply is a short completion/status pointer.
 
 ### Starting the `simplify` worker
 
@@ -463,69 +463,43 @@ follow.
 
 ### Starting the `consistency` worker
 
-- **When**: you want a long-lived worker that checks whether Cortex instructions, docs, scripts, and examples contradict each other, have drifted apart, or carry material in the wrong durable home.
-- **Shortcut**:
-
-  ```bash
-  bash scripts/start_agent_screen.sh --role worker --name consistency
-  ```
-
-  `roles/framework/worker.consistency.instruct` is appended automatically because the worker id is `consistency`.
-- **Why / gotcha**: `consistency` is analysis-only by default. It is the right standing worker for ownership-boundary drift, including project-specific facts in environment sheets or framework rules buried in project docs. It defaults to Codex / `gpt-5.5` with high reasoning, writes periodic context to `agents/consistency/logbook.md`, and only forwards findings or problems to the conductor.
-- **Last verified**: 2026-04-29.
+See the [named worker launch matrix](#named-worker-launch-matrix) for the
+launch command, defaults, and domain. The named instructions load
+automatically. Report contradictions and ownership drift; periodic reports
+belong in its local logbook.
 
 ### Starting specialist review workers
 
-- **When**: you want recurring Cortex self-improvement review split by responsibility instead of one broad reviewer accumulating mixed findings.
-- **Shortcut**:
+See the [named worker launch matrix](#named-worker-launch-matrix) for
+`reliability` and `memory` launch commands, defaults, and domains. Their
+named instructions load automatically. They propose repairs; `compressor`
+executes memory compaction. Git-sync health is checked by
+`cortex_doctor.sh --check git-sync-health`.
 
-  ```bash
-  bash scripts/start_agent_screen.sh --role worker --name reliability
-  bash scripts/start_agent_screen.sh --role worker --name memory
-  ```
-
-  Their named role overrides are appended automatically from `roles/framework/worker.reliability.instruct` and `roles/framework/worker.memory.instruct`.
-- **Why / gotcha**: these are analysis-only recurring review workers with Codex / `gpt-5.5` / high-reasoning defaults and only their own agent directories writable. Their default periodic cadences come from their `worker.*.meta` files unless you override them at launch. Their Codex path uses a staged `CODEX_HOME`; keep the staged auth file present for the lifetime of the `codex exec` process, then remove the staged home after exit. Removing auth during startup/retry can produce `401 Unauthorized: Missing bearer` failures. `reliability` covers runtime health, stuck loops, stale agents, failed periodics, and recovery recipes. `memory` covers task/logbook/shortcut/archive hygiene and duplicate durable context. Commit/push/sync lag is now tracked by `cortex_doctor.sh --check git-sync-health` instead of a worker. They should report implementation-ready suggestions, not make repairs during periodic checks.
-- **Last verified**: 2026-05-03.
+The Codex launchers stage authentication for the provider's full lifetime;
+removing it during startup or retries can cause authentication failures.
+Only the worker's own agent directory is writable.
 
 ### Starting the `calibration` worker
 
-- **When**: you want a long-lived worker that reads each Cortex agent's logbook, recent log, and status traces and flags where the agent's observed behavior over time diverges from what its own role/instruct file describes (over-triggering, under-triggering, mandate drift, silent failures, repeated confusion patterns, instruction/environment mismatch).
-- **Shortcut**:
-
-  ```bash
-  bash scripts/start_agent_screen.sh --role worker --name calibration
-  ```
-
-  `roles/framework/worker.calibration.instruct` is appended automatically because the worker id is `calibration`.
-- **Why / gotcha**: `calibration` is analysis-only by default. Its deliverable is targeted instruction edits (which file, what passage, what tightening) rather than runtime repairs. Its default periodic cadence comes from `roles/framework/worker.calibration.meta`; only its own agent directory is writable. It rotates coverage across agents — do not expect every agent to be reviewed every wake. It is distinct from `consistency` (which checks file-vs-file agreement) and `reliability` (which checks runtime health).
-- **Last verified**: 2026-05-18.
+See the [named worker launch matrix](#named-worker-launch-matrix) for the
+launch command, defaults, and domain. Rotate the agents inspected across
+wakes; propose targeted instruction changes from observed runtime evidence.
 
 ### Starting the `environment` worker
 
-- **When**: you want a long-lived worker that verifies the recorded environment facts in `environments/<env>/cheat_sheet.md` and `environments/<env>/<env>.instruct` still match what the live hosts report (host inventory, GPU model/count, network identity, NAS topology, tooling presence).
-- **Shortcut**:
-
-  ```bash
-  bash scripts/start_agent_screen.sh --role worker --name environment
-  ```
-
-  `roles/framework/worker.environment.instruct` is appended automatically because the worker id is `environment`.
-- **Why / gotcha**: `environment` is analysis-only by default; it surfaces drift findings, the conductor applies the edits. It is the **only** Cortex worker with outbound SSH — the launcher gives it a narrow carve-out (read-only per-file binds for `~/.ssh/config` and `~/.ssh/known_hosts*` plus the live `SSH_AUTH_SOCK`, never the whole `~/.ssh` directory). Its default periodic cadence comes from `roles/framework/worker.environment.meta`; it rotates across 5 slices (inventory / GPU / network / NAS / tooling) so a full sweep completes every 4–5 wakes. Distinct from `consistency` (file-vs-file agreement), `reliability` (runtime health), and `security` (sandbox/credential posture).
-- **Last verified**: 2026-05-18.
+See the [named worker launch matrix](#named-worker-launch-matrix) for the
+launch command, defaults, and domain. Its launcher grants narrow SSH access
+through read-only config/known-host files and the live SSH-agent socket,
+never a whole-directory SSH bind. Rotate inventory, GPU, network, NAS, and
+tooling checks; report drift for the conductor to resolve.
 
 ### Starting the `privacy` worker
 
-- **When**: you want a long-lived worker that checks whether concrete user, project, host, path, or deployment-specific information has leaked upward into generic framework material.
-- **Shortcut**:
-
-  ```bash
-  bash scripts/start_agent_screen.sh --role worker --name privacy
-  ```
-
-  `roles/framework/worker.privacy.instruct` is appended automatically because the worker id is `privacy`.
-- **Why / gotcha**: `privacy` is analysis-only by default. It is narrower than `consistency`: `consistency` checks whether surfaces agree and whether knowledge lives in the right family of files, while `privacy` checks whether generic framework docs/scripts/prompts contain any concrete private deployment payload at all. Its default periodic cadence comes from `roles/framework/worker.privacy.meta`; durable findings go to `agents/privacy/logbook.md`.
-- **Last verified**: 2026-06-02.
+See the [named worker launch matrix](#named-worker-launch-matrix) for the
+launch command, defaults, and domain. Its specific concern is private
+payload in generic framework surfaces; `consistency` checks agreement and
+ownership across surfaces. Keep durable findings in its local logbook.
 
 ### Starting the `metacortex` worker
 

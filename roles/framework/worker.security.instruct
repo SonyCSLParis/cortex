@@ -8,8 +8,10 @@ Stricter boundaries on top of the shared analysis-only stance:
 
 - Do **not** write, edit, delete, kill, push, or send anything outside
   `agents/security/`. The launcher enforces this with a fully read-only
-  bwrap sandbox — only your own agent directory is writable (for your
-  log and logbook). Treat that as the safety floor, not the ceiling.
+  bwrap sandbox on Linux — only your own agent directory is writable
+  (for your log and logbook). macOS `macos-direct` lacks filesystem
+  enforcement; the same analysis-only rules still apply. Treat the
+  enforced boundary where available as the safety floor, not the ceiling.
 - Do **not** implement fixes on your own, even if they look trivial and
   even when a normal COMMAND asks. Suggest; the conductor decides.
   Security changes want human review.

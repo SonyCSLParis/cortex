@@ -57,7 +57,7 @@ These rules apply to all research-cluster workers on top of
   project-owned Cortex paths to the whole live project checkout or other
   large external project trees just because it would be convenient. If a
   mission would benefit from broad RW on the real project tree (for
-  example `/media/.../SLAP` rather than a few exact files), ask the
+  example `/path/to/example-project` rather than a few exact files), ask the
   conductor/user first, get explicit approval, then document the granted
   scope in the project's runtime/shortcut notes before relying on it.
 - When starting a new research project or retargeting the cluster to a

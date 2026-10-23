@@ -85,7 +85,8 @@ def diagnose(root: Path) -> tuple[int, list[str]]:
     if '/' in env.get('CORTEX_RESEARCH_RO_BASE', '/').split(':'):
         warnings.append('research read base includes host root /; reads are broad except credential masks')
 
-    excludes = Path(env.get('BACKUP_EXCLUDES_DIR', str(Path(env.get('CORTEX_DEFAULT_ENV_DIR', str(directory))) / 'backup_excludes')))
+    manifest = Path(env.get('BACKUP_TARGETS_FILE') or env['CORTEX_DEFAULT_BACKUP_TARGETS_FILE'])
+    excludes = Path(env.get('BACKUP_EXCLUDES_DIR') or manifest.parent.resolve() / 'backup_excludes')
     for mode in ('repo_worktree', 'source_tree', 'path'):
         if not (excludes / f'{mode}.txt').is_file():
             warnings.append(f'backup exclusion file is missing: {mode}.txt')

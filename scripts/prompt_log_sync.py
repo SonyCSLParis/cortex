@@ -48,6 +48,10 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Backfill existing matching prompts from artifact files that predate the state file.",
     )
+    parser.add_argument("--provider", choices=("codex", "claude"))
+    parser.add_argument("--provider-session-id", help="Exact native provider session to collect.")
+    parser.add_argument("--session-marker", help="Unique fresh-window marker used to discover its native session id.")
+    parser.add_argument("--resolve-session", choices=("codex", "claude"), help="Print the latest interactive native session id for this cwd, without syncing.")
     return parser.parse_args()
 
 
@@ -188,7 +192,7 @@ def read_lines(path: Path) -> list[str]:
         return []
 
 
-def codex_file_matches(lines: list[str], cwd: str) -> bool:
+def codex_file_matches(lines: list[str], cwd: str, session_id: str | None = None) -> bool:
     for raw in lines[:20]:
         try:
             data = json.loads(raw)
@@ -201,10 +205,55 @@ def codex_file_matches(lines: list[str], cwd: str) -> bool:
             return False
         return (
             payload.get("cwd") == cwd
+            and (session_id is None or payload.get("id") == session_id)
             and payload.get("originator") == "codex-tui"
             and payload.get("thread_source") == "user"
         )
     return False
+
+
+def find_provider_session(cwd: str, provider: str, marker: str | None = None) -> str | None:
+    root = codex_sessions_root() if provider == "codex" else claude_project_dir(cwd)
+    paths = root.rglob("rollout-*.jsonl") if provider == "codex" else root.glob("*.jsonl")
+    matches = {}
+    binding_text = f"CORTEX_TRANSCRIPT_SESSION: {marker}" if marker else None
+    for path in paths:
+        lines = read_lines(path)
+        if provider == "codex":
+            if not codex_file_matches(lines, cwd):
+                continue
+            records = []
+            for raw in lines:
+                try:
+                    records.append(json.loads(raw))
+                except json.JSONDecodeError:
+                    continue
+            native_id = next((item.get("payload", {}).get("id") for item in records if item.get("type") == "session_meta"), None)
+            prompts = ["".join(part.get("text", "") for part in item.get("payload", {}).get("content", []) if isinstance(part, dict) and part.get("type") == "input_text")
+                       for item in records if item.get("type") == "response_item" and item.get("payload", {}).get("role") == "user"]
+        else:
+            records = []
+            for raw in lines:
+                try:
+                    records.append(json.loads(raw))
+                except json.JSONDecodeError:
+                    continue
+            records = [item for item in records if item.get("cwd") == cwd and item.get("userType") == "external" and item.get("entrypoint") == "cli"]
+            native_id = next((item.get("sessionId") for item in records if item.get("sessionId") == path.stem), None)
+            prompts = [item.get("message", {}).get("content", "") for item in records if item.get("type") == "user"]
+        if not isinstance(native_id, str) or not native_id:
+            continue
+        if binding_text and not any(isinstance(text, str) and is_launcher_prompt(text) and binding_text in text.splitlines() for text in prompts):
+            continue
+        try:
+            matches[native_id] = max(matches.get(native_id, 0), path.stat().st_mtime_ns)
+        except OSError:
+            continue
+    if marker:
+        if len(matches) > 1:
+            raise ValueError("launch marker matches multiple native sessions; refusing ambiguous transcript binding")
+        return next(iter(matches), None)
+    return max(matches, key=matches.get) if matches else None
 
 
 def line_cursor_start(
@@ -234,17 +283,18 @@ def collect_codex_entries(
     answer_state: dict[str, int],
     initialized_at: int,
     backfill: bool,
+    session_id: str | None = None,
 ) -> tuple[list[dict], dict[str, int], dict[str, int]]:
     entries: list[dict] = []
     updated_prompt_state = dict(prompt_state)
     updated_answer_state = dict(answer_state)
     root = codex_sessions_root()
-    if not root.exists():
+    if not session_id or not root.exists():
         return entries, updated_prompt_state, updated_answer_state
 
     for path in sorted(root.rglob("rollout-*.jsonl")):
         lines = read_lines(path)
-        if not lines or not codex_file_matches(lines, cwd):
+        if not lines or not codex_file_matches(lines, cwd, session_id):
             continue
         prompt_start = line_cursor_start(path, len(lines), prompt_state, initialized_at, backfill)
         answer_start = line_cursor_start(path, len(lines), answer_state, initialized_at, backfill)
@@ -312,15 +362,18 @@ def collect_claude_entries(
     answer_state: dict[str, int],
     initialized_at: int,
     backfill: bool,
+    session_id: str | None = None,
 ) -> tuple[list[dict], dict[str, int], dict[str, int]]:
     entries: list[dict] = []
     updated_prompt_state = dict(prompt_state)
     updated_answer_state = dict(answer_state)
     project_dir = claude_project_dir(cwd)
-    if not project_dir.exists():
+    if not session_id or not project_dir.exists():
         return entries, updated_prompt_state, updated_answer_state
 
     for path in sorted(project_dir.glob("*.jsonl")):
+        if path.stem != session_id:
+            continue
         lines = read_lines(path)
         if not lines:
             continue
@@ -331,6 +384,9 @@ def collect_claude_entries(
                 try:
                     data = json.loads(raw)
                 except json.JSONDecodeError:
+                    continue
+                # The bound session can change cwd during a conversation.
+                if data.get("sessionId") != session_id:
                     continue
                 if data.get("userType") != "external" or data.get("entrypoint") != "cli":
                     continue
@@ -429,9 +485,19 @@ def prune_inactive_transcripts(session_dir: Path, retention_days: int) -> None:
 
 
 def main() -> int:
-    if os.environ.get("CORTEX_PROMPT_LOG_DISABLE", "0") == "1":
+    if os.environ.get("CORTEX_PROMPT_LOG_DISABLE", "0") == "1" and "--resolve-session" not in sys.argv:
         return 0
     args = parse_args()
+    if args.resolve_session:
+        session_id = find_provider_session(str(Path(args.cwd).resolve()), args.resolve_session)
+        if not session_id:
+            print("prompt_log_sync.py: no matching native session to resume", file=sys.stderr)
+            return 1
+        print(session_id)
+        return 0
+    if not args.provider:
+        print("prompt_log_sync.py: --provider and an exact session id or launch marker are required; cwd-only collection is disabled", file=sys.stderr)
+        return 2
     try:
         retention_days = int(os.environ.get("CORTEX_PROMPT_LOG_RETENTION_DAYS", "0"))
         if retention_days < 0:
@@ -443,6 +509,9 @@ def main() -> int:
     base_dir = None
     if args.session_dir:
         base_dir = Path(args.session_dir)
+        if not base_dir.is_dir():
+            print("prompt_log_sync.py: --session-dir must name an existing directory; the conductor launcher owns session creation", file=sys.stderr)
+            return 2
     elif args.user_home:
         base_dir = Path(args.user_home)
     elif args.log_path:
@@ -468,31 +537,39 @@ def main() -> int:
         ensure_log_header(log_path)
         state = load_state(state_path)
         initialized_at = int(state.get("initialized_at", int(time.time())))
-        codex_entries, codex_prompt_state, codex_answer_state = collect_codex_entries(
-            cwd,
-            exclude_texts,
-            state.get("codex_prompts", {}),
-            state.get("codex_answers", {}),
-            initialized_at,
-            args.backfill,
+        binding = state.get("provider_binding", {})
+        native_id = args.provider_session_id or binding.get("session_id")
+        if binding and (binding.get("provider") != args.provider or (args.provider_session_id and binding.get("session_id") != args.provider_session_id)):
+            print("prompt_log_sync.py: provider binding differs from this transcript; refusing mixed sessions", file=sys.stderr)
+            return 2
+        if not native_id:
+            if not args.session_marker:
+                print("prompt_log_sync.py: no exact native session binding; refusing cwd-only collection", file=sys.stderr)
+                return 2
+            try:
+                native_id = find_provider_session(cwd, args.provider, args.session_marker)
+            except ValueError as error:
+                print(f"prompt_log_sync.py: {error}", file=sys.stderr)
+                return 2
+        if not native_id:
+            # Preserve the initial cursor time while waiting for the first
+            # launch prompt to appear in native history.
+            atomic_write(state_path, json.dumps(state, indent=2, sort_keys=True) + "\n")
+            return 0
+        state["provider_binding"] = {"provider": args.provider, "session_id": native_id}
+        collect = collect_codex_entries if args.provider == "codex" else collect_claude_entries
+        prompts_key, answers_key = f"{args.provider}_prompts", f"{args.provider}_answers"
+        entries, prompts, answers = collect(
+            cwd, exclude_texts, state.get(prompts_key, {}), state.get(answers_key, {}),
+            # Snapshot existing history before an explicit resume starts.
+            sys.maxsize if args.provider_session_id and not binding and not args.backfill else initialized_at,
+            args.backfill, native_id,
         )
-        claude_entries, claude_prompt_state, claude_answer_state = collect_claude_entries(
-            cwd,
-            exclude_texts,
-            state.get("claude_prompts", {}),
-            state.get("claude_answers", {}),
-            initialized_at,
-            args.backfill,
-        )
-        entries = codex_entries + claude_entries
+        state[prompts_key], state[answers_key] = prompts, answers
         entries.sort(key=lambda item: (item["sort_ts"], item["timestamp"], item["source"]))
         append_entries(log_path, entries)
         state.pop("codex", None)
         state.pop("claude", None)
-        state["codex_prompts"] = codex_prompt_state
-        state["codex_answers"] = codex_answer_state
-        state["claude_prompts"] = claude_prompt_state
-        state["claude_answers"] = claude_answer_state
         atomic_write(state_path, json.dumps(state, indent=2, sort_keys=True) + "\n")
 
     print(f"appended {len(entries)} transcript entry/entries")

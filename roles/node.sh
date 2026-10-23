@@ -39,6 +39,11 @@ node_run_provider_cli() {
             fi
             security_bwrap_dir_args node_dir_args
             security_bwrap_device_args node_device_args
+            local -a node_secret_masks=()
+            security_bwrap_worker_secret_masks "${cortex_real}" node_secret_masks || {
+                rm -rf "${claude_sandbox_dir}"
+                return 1
+            }
             local -a node_usage_binds=()
             security_claude_usage_stage_bind "${cortex_real}" node_usage_binds
             run_with_array_prefix "${timeout_ref}" bwrap \
@@ -52,6 +57,7 @@ node_run_provider_cli() {
                 --tmpfs /tmp \
                 --bind "${claude_sandbox_dir}/session-env" "${HOME}/.claude/session-env" \
                 "${node_usage_binds[@]}" \
+                "${node_secret_masks[@]}" \
                 --chdir "${cortex_real}" \
                 "${claude_cmd[@]}" --permission-mode dontAsk "${prompt}" 2>&1 \
                 | tee "${working_file}" \

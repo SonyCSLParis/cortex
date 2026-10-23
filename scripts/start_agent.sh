@@ -1029,10 +1029,24 @@ hash_text() {
 }
 
 provider_failure_state_field() {
-    local key="$1"
+    local key="$1" provider="${2:-}"
     [[ -f "${PROVIDER_FAILURE_STATE}" ]] || return 0
-    awk -F= -v key="${key}" '$1 == key { print substr($0, length(key) + 2); exit }' \
+    # Each provider= line starts a record; old single-provider files still work.
+    awk -F= -v key="${key}" -v provider="${provider}" '
+        $1 == "provider" { current = $2 }
+        (provider == "" || current == provider) && $1 == key {
+            print substr($0, length(key) + 2); exit
+        }' \
         "${PROVIDER_FAILURE_STATE}" 2>/dev/null
+}
+
+provider_failure_other_records() {
+    local provider="$1"
+    [[ -f "${PROVIDER_FAILURE_STATE}" ]] || return 0
+    awk -F= -v provider="${provider}" '
+        $1 == "provider" { current = $2 }
+        current != provider { print }
+    ' "${PROVIDER_FAILURE_STATE}"
 }
 
 provider_failure_matches_quota_auth() {
@@ -1051,10 +1065,19 @@ provider_failure_retry_hint() {
 }
 
 clear_provider_failure_state_if_matches() {
-    local provider="$1"
+    local provider="$1" tmp
     [[ -f "${PROVIDER_FAILURE_STATE}" ]] || return 0
-    [[ "$(provider_failure_state_field provider)" == "${provider}" ]] || return 0
-    rm -f "${PROVIDER_FAILURE_STATE}"
+    [[ "$(provider_failure_state_field provider "${provider}")" == "${provider}" ]] || return 0
+    tmp="$(mktemp "${PROVIDER_FAILURE_STATE}.tmp.XXXXXX")" || return 1
+    if ! provider_failure_other_records "${provider}" > "${tmp}"; then
+        rm -f "${tmp}"
+        return 1
+    fi
+    if [[ -s "${tmp}" ]]; then
+        mv "${tmp}" "${PROVIDER_FAILURE_STATE}"
+    else
+        rm -f "${tmp}" "${PROVIDER_FAILURE_STATE}"
+    fi
 }
 
 record_provider_failure_cooldown() {
@@ -1064,7 +1087,11 @@ record_provider_failure_cooldown() {
     until=$(( now + PROVIDER_FAILURE_COOLDOWN_SECONDS ))
     retry_hint="$(provider_failure_retry_hint "${output}")"
     head="$(printf '%s' "${output}" | head -n 1 | tr '\n' ' ')"
-    tmp="${PROVIDER_FAILURE_STATE}.tmp"
+    tmp="$(mktemp "${PROVIDER_FAILURE_STATE}.tmp.XXXXXX")" || return 1
+    if ! provider_failure_other_records "${provider}" > "${tmp}"; then
+        rm -f "${tmp}"
+        return 1
+    fi
     {
         printf 'provider=%s\n' "${provider}"
         printf 'reason=%s\n' "${reason}"
@@ -1073,7 +1100,7 @@ record_provider_failure_cooldown() {
         printf 'retry_hint=%s\n' "${retry_hint}"
         printf 'head=%s\n' "${head}"
         printf 'recorded_epoch=%s\n' "${now}"
-    } > "${tmp}"
+    } >> "${tmp}"
     mv "${tmp}" "${PROVIDER_FAILURE_STATE}"
 }
 
@@ -1081,25 +1108,25 @@ provider_failure_cooldown_active() {
     local provider="$1"
     local state_provider until_epoch now
     [[ -f "${PROVIDER_FAILURE_STATE}" ]] || return 1
-    state_provider="$(provider_failure_state_field provider)"
+    state_provider="$(provider_failure_state_field provider "${provider}")"
     [[ "${state_provider}" == "${provider}" ]] || return 1
-    until_epoch="$(provider_failure_state_field until_epoch)"
+    until_epoch="$(provider_failure_state_field until_epoch "${provider}")"
     until_epoch="${until_epoch:-0}"
     now="$(date -u +%s)"
     if (( until_epoch > now )); then
         return 0
     fi
-    rm -f "${PROVIDER_FAILURE_STATE}"
+    clear_provider_failure_state_if_matches "${provider}"
     return 1
 }
 
 provider_failure_cooldown_message() {
     local provider="$1"
     local until_iso retry_hint reason head
-    until_iso="$(provider_failure_state_field until_iso)"
-    retry_hint="$(provider_failure_state_field retry_hint)"
-    reason="$(provider_failure_state_field reason)"
-    head="$(provider_failure_state_field head)"
+    until_iso="$(provider_failure_state_field until_iso "${provider}")"
+    retry_hint="$(provider_failure_state_field retry_hint "${provider}")"
+    reason="$(provider_failure_state_field reason "${provider}")"
+    head="$(provider_failure_state_field head "${provider}")"
     printf "[cortex] provider '%s' is cooling down until %s after %s failure." \
         "${provider}" "${until_iso:-unknown}" "${reason:-recent}"
     if [[ -n "${retry_hint}" ]]; then
@@ -1265,9 +1292,9 @@ run_agent_cli_single_provider() {
     local -a timeout_cmd=()
     if (( timeout_secs > 0 )); then
         if command -v timeout >/dev/null 2>&1; then
-            timeout_cmd=(timeout --preserve-status --kill-after=30s "${timeout_secs}")
+            timeout_cmd=(env LC_MESSAGES=C timeout --verbose --kill-after=30s "${timeout_secs}")
         elif command -v gtimeout >/dev/null 2>&1; then
-            timeout_cmd=(gtimeout --preserve-status --kill-after=30s "${timeout_secs}")
+            timeout_cmd=(env LC_MESSAGES=C gtimeout --verbose --kill-after=30s "${timeout_secs}")
         fi
     fi
     # Stream output to working file and terminal (stderr → screen/log) in real-time
@@ -1315,12 +1342,17 @@ run_agent_cli_single_provider() {
                 "${AGENT_PROVIDER}" "${usage_model}" "start_agent:${AGENT_ID}" \
                 "${started_epoch}" "${ended_epoch}" "${CORTEX_DIR}" || true
     fi
+    # Coreutils returns 137 if the watchdog escalates to KILL. Its own
+    # verbose diagnostic distinguishes that from an unrelated SIGKILL.
+    if (( exit_code == 137 )) && [[ "${out}" == *"timeout: sending signal KILL to command"* ]]; then
+        exit_code=124
+    fi
     if [[ "${AGENT_PROVIDER}" == "codex" && -s "${tmp_last}" ]]; then
         out="$(cat "${tmp_last}")"
     fi
     rm -f "${tmp_out}" "${tmp_last}" "${working_file}"
     if (( exit_code == 124 )); then
-        log "provider CLI timed out after ${timeout_secs}s"
+        log "provider CLI timed out after ${timeout_secs}s" >&2
         # Append a clear marker so the conductor-side RESPONSE body shows the reason
         out="${out}
 [cortex] provider CLI '${AGENT_PROVIDER}' exceeded ${timeout_secs}s and was killed."
@@ -1345,7 +1377,7 @@ run_agent_cli_provider_attempt() {
     if provider_failure_cooldown_active "${provider}"; then
         RUN_AGENT_LAST_FAILURE_KIND="cooldown"
         RUN_AGENT_LAST_OUTPUT="$(provider_failure_cooldown_message "${provider}")"
-        log "${RUN_AGENT_LAST_OUTPUT}"
+        log "${RUN_AGENT_LAST_OUTPUT}" >&2
         return 1
     fi
 
@@ -1369,17 +1401,23 @@ run_agent_cli_provider_attempt() {
         END { if (NR==1 && banner!="") print banner }
     ')"
 
+    if (( rc == 124 )); then
+        RUN_AGENT_LAST_FAILURE_KIND="timeout"
+        RUN_AGENT_LAST_OUTPUT="${output}"
+        return 1
+    fi
+    if provider_failure_matches_quota_auth "${output}"; then
+        RUN_AGENT_LAST_FAILURE_KIND="quota_auth"
+        RUN_AGENT_LAST_OUTPUT="${output}"
+        log "provider CLI ${provider}: quota/auth failure detected (head: $(printf '%s' "${output}" | head -n 1))" >&2
+        return 1
+    fi
+
     if (( rc == 0 )); then
-        if provider_failure_matches_quota_auth "${output}"; then
-            RUN_AGENT_LAST_FAILURE_KIND="quota_auth"
-            RUN_AGENT_LAST_OUTPUT="${output}"
-            log "provider CLI ${provider}: quota/auth failure detected (head: $(printf '%s' "${output}" | head -n 1))"
-            return 1
-        fi
         if [[ -z "$(printf '%s' "${output}" | tr -d '[:space:]')" ]]; then
             RUN_AGENT_LAST_FAILURE_KIND="empty"
             RUN_AGENT_LAST_OUTPUT="${output}"
-            log "provider CLI ${provider}: empty output"
+            log "provider CLI ${provider}: empty output" >&2
             return 1
         fi
         clear_provider_failure_state_if_matches "${provider}"
@@ -1389,17 +1427,13 @@ run_agent_cli_provider_attempt() {
 
     if [[ -n "$(printf '%s' "${output}" | tr -d '[:space:]')" ]] \
        && result_has_structured_fields "${output}"; then
-        log "provider CLI ${provider}: nonzero exit ${rc}, but structured output was preserved"
+        log "provider CLI ${provider}: nonzero exit ${rc}, but structured output was preserved" >&2
         clear_provider_failure_state_if_matches "${provider}"
         printf '%s' "${output}"
         return 0
     fi
 
-    if (( rc == 124 )); then
-        RUN_AGENT_LAST_FAILURE_KIND="timeout"
-    else
-        RUN_AGENT_LAST_FAILURE_KIND="exit"
-    fi
+    RUN_AGENT_LAST_FAILURE_KIND="exit"
     RUN_AGENT_LAST_OUTPUT="${output}"
     return 1
 }
@@ -1411,8 +1445,11 @@ run_agent_cli() {
     local fallback_provider="${FALLBACK_PROVIDER:-}"
     local primary_output fallback_output
     local primary_failure_kind fallback_failure_kind
+    local attempt_file; attempt_file="$(mktemp)" || return 1
 
-    if primary_output="$(run_agent_cli_provider_attempt "${primary_provider}" "${prompt}" "${timeout_secs}")"; then
+    if run_agent_cli_provider_attempt "${primary_provider}" "${prompt}" "${timeout_secs}" > "${attempt_file}"; then
+        primary_output="$(cat "${attempt_file}")"
+        rm -f "${attempt_file}"
         printf '%s' "${primary_output}"
         return 0
     fi
@@ -1423,8 +1460,10 @@ run_agent_cli() {
     fi
 
     if [[ -n "${fallback_provider}" && "${fallback_provider}" != "${primary_provider}" ]]; then
-        log "primary provider ${primary_provider} unavailable (${primary_failure_kind:-unknown}); trying fallback ${fallback_provider}"
-        if fallback_output="$(run_agent_cli_provider_attempt "${fallback_provider}" "${prompt}" "${timeout_secs}")"; then
+        log "primary provider ${primary_provider} unavailable (${primary_failure_kind:-unknown}); trying fallback ${fallback_provider}" >&2
+        if run_agent_cli_provider_attempt "${fallback_provider}" "${prompt}" "${timeout_secs}" > "${attempt_file}"; then
+            fallback_output="$(cat "${attempt_file}")"
+            rm -f "${attempt_file}"
             printf '%s' "${fallback_output}"
             return 0
         fi
@@ -1433,11 +1472,13 @@ run_agent_cli() {
         if [[ "${fallback_failure_kind}" == "quota_auth" ]]; then
             record_provider_failure_cooldown "${fallback_provider}" "${fallback_failure_kind}" "${fallback_output}"
         fi
+        rm -f "${attempt_file}"
         printf '%s\n\n[cortex] fallback provider %s also failed.\n%s' \
             "${primary_output}" "${fallback_provider}" "${fallback_output}"
         return 1
     fi
 
+    rm -f "${attempt_file}"
     printf '%s' "${primary_output}"
     return 1
 }
@@ -1939,10 +1980,11 @@ PY
 }
 
 collect_gpu_status_line() {
-    python3 - <<'PY'
+    python3 - "${CORTEX_DEFAULT_GPU_IDLE_RECHECK_SECONDS}" <<'PY'
 import re
 import subprocess
 import time
+import sys
 
 
 def query():
@@ -1981,7 +2023,7 @@ if not first:
 
 rows = first
 if any(item["util"] == 0 for item in first.values()):
-    time.sleep(30)
+    time.sleep(float(sys.argv[1]))
     second = query()
     if second:
         merged = {}

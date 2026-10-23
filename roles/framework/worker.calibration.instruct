@@ -77,7 +77,7 @@ Typical inputs:
   `roles/research/`; for non-worker agents the corresponding role file
 - the conductor's own log when the target's behavior depends on
   conductor-driven cadence
-- `bash scripts/cortex_ops_snapshot.sh --all` for cross-agent baseline
+- `bash scripts/cortex_ops_snapshot.sh` for cross-agent baseline
 
 A single odd log line is usually not a calibration problem; the same odd
 line three checks in a row probably is.

@@ -32,6 +32,7 @@ PROMPT_LOG_SYNC_PID=""
 PROMPT_LOG_SYNC_INTERVAL="${CORTEX_PROMPT_LOG_SYNC_INTERVAL:-5}"
 CONDUCTOR_SESSION_LABEL="${CORTEX_CONDUCTOR_LABEL:-}"
 CONDUCTOR_SESSION_ID=""
+CONDUCTOR_PROVIDER_SESSION_ID=""
 CONDUCTOR_SESSION_DIR=""
 CONDUCTOR_SESSION_STATUS_FILE=""
 CONDUCTOR_SESSION_HEARTBEAT_FILE=""
@@ -488,7 +489,7 @@ cortex_conductor_prompt() {
     if ! cortex_projects_initialized && [[ -f "${SETUP_INSTRUCT_FILE}" ]]; then
         prompt="${prompt} No Cortex projects are initialized yet; also read setup.instruct and follow it during startup."
     fi
-    printf '%s\n' "${prompt}"
+    printf '%s\nCORTEX_TRANSCRIPT_SESSION: %s\n' "${prompt}" "${CONDUCTOR_SESSION_ID:-}"
 }
 
 cortex_provider_permission_args() {
@@ -540,6 +541,9 @@ cortex_prompt_log_sync_once() {
         python3 "${script_path}"
         --cwd "${CORTEX_DIR}"
         --session-dir "${CONDUCTOR_SESSION_DIR}"
+        --provider "${PROVIDER}"
+        --provider-session-id "${CONDUCTOR_PROVIDER_SESSION_ID:-}"
+        --session-marker "${CONDUCTOR_SESSION_ID}"
         --log-path "${CONDUCTOR_SESSION_PROMPT_LOG}"
         --state-path "${CONDUCTOR_SESSION_PROMPT_STATE}"
     )
@@ -558,9 +562,13 @@ start_prompt_log_sync() {
         cortex_prompt_log_sync_once
         return 0
     }
+    cortex_prompt_log_sync_once
     bash "${daemon_script}" \
         --cwd "${CORTEX_DIR}" \
         --session-dir "${CONDUCTOR_SESSION_DIR}" \
+        --provider "${PROVIDER}" \
+        --provider-session-id "${CONDUCTOR_PROVIDER_SESSION_ID:-}" \
+        --session-marker "${CONDUCTOR_SESSION_ID}" \
         --interval "${PROMPT_LOG_SYNC_INTERVAL}" \
         --parent-pid "$$" </dev/null >/dev/null 2>&1 &
     PROMPT_LOG_SYNC_PID="$!"
@@ -1120,6 +1128,10 @@ signal_exit() {
     exit 130
 }
 
+if (( RESUME_LAST )); then
+    CONDUCTOR_PROVIDER_SESSION_ID="$(python3 "${CORTEX_DIR}/scripts/prompt_log_sync.py" --cwd "${CORTEX_DIR}" --resolve-session "${PROVIDER}")" || exit 1
+    [[ -n "${CONDUCTOR_PROVIDER_SESSION_ID}" ]] || { echo "Cannot resume without an exact native session id." >&2; exit 1; }
+fi
 conductor_session_init
 mkdir -p "${CONDUCTOR_INBOX}" "${CONDUCTOR_ARCHIVE}" "${CONDUCTOR_SESSION_DIR}"
 write_conductor_session_info
@@ -1213,16 +1225,17 @@ done
 if (( RESUME_LAST )); then
     case "${PROVIDER}" in
         codex)
-            run_conductor_provider "${LAUNCH_ARGS[@]}" resume --last
+            run_conductor_provider "${LAUNCH_ARGS[@]}" resume "${CONDUCTOR_PROVIDER_SESSION_ID}"
             ;;
         claude)
-            run_conductor_provider "${LAUNCH_ARGS[@]}" --continue
+            CONDUCTOR_CLAUDE_SESSION_ID="${CONDUCTOR_PROVIDER_SESSION_ID}"
+            run_conductor_provider "${LAUNCH_ARGS[@]}" --resume "${CONDUCTOR_PROVIDER_SESSION_ID}"
             ;;
     esac
 else
     # Pin a fresh Claude session id so usage attribution matches this window's
     # transcript by identity rather than cwd + time window (other conductor
-    # windows and agents share the same cwd). --continue cannot be pinned.
+    # windows and agents share the same cwd). Resumes above use an exact id.
     CONDUCTOR_CLAUDE_SESSION_ID=""
     if [[ "${PROVIDER}" == "claude" ]]; then
         CONDUCTOR_CLAUDE_SESSION_ID="$(cortex_usage_new_claude_session_id 2>/dev/null || true)"

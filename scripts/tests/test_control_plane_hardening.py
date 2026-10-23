@@ -125,6 +125,25 @@ class LoggingTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertEqual(list(Path(tmp).iterdir()), [])
 
+    def test_sync_requires_launcher_created_session_before_reading_or_writing(self):
+        sync = module('prompt_log_sync')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            session = root / 'absent'
+            argv = ['prompt_log_sync.py', '--cwd', str(root), '--session-dir', str(session), '--provider', 'codex', '--provider-session-id', 'fixture-native']
+            with patch('sys.argv', argv), patch.dict(os.environ, {'CORTEX_PROMPT_LOG_DISABLE': '0', 'CORTEX_PROMPT_LOG_RETENTION_DAYS': '30'}), \
+                 patch.object(sync, 'collect_codex_entries', side_effect=AssertionError('must not read history')), \
+                 patch.object(sync, 'prune_inactive_transcripts', side_effect=AssertionError('must not prune')):
+                self.assertEqual(sync.main(), 2)
+                self.assertEqual(list(root.iterdir()), [])
+            session.mkdir()
+            with patch('sys.argv', argv), patch.dict(os.environ, {'CORTEX_PROMPT_LOG_DISABLE': '0', 'CORTEX_PROMPT_LOG_RETENTION_DAYS': '0'}), \
+                 patch.object(sync, 'collect_codex_entries', return_value=([], {}, {})), \
+                 patch.object(sync, 'collect_claude_entries', return_value=([], {}, {})):
+                self.assertEqual(sync.main(), 0)
+                self.assertTrue((session / 'prompt_log.txt').is_file())
+                self.assertTrue((session / '.prompt_log_state.json').is_file())
+
     def test_retention_preserves_active_recent_unmanaged_and_cursor_files(self):
         sync = module('prompt_log_sync')
         with tempfile.TemporaryDirectory() as tmp:
@@ -206,6 +225,22 @@ class ConfigTests(unittest.TestCase):
                 settings.write_text('CORTEX_RESEARCH_RO_BASE=/tmp\nCORTEX_SESSION_BACKEND=screen\n')
                 code, findings = checker.diagnose(root)
                 self.assertEqual((code, findings), (0, []))
+                custom = root / 'custom-manifest'
+                custom.mkdir()
+                manifest = custom / 'targets.txt'
+                manifest.touch()
+                with patch.dict(os.environ, {'BACKUP_TARGETS_FILE': str(manifest), 'BACKUP_EXCLUDES_DIR': ''}):
+                    code, findings = checker.diagnose(root)
+                    self.assertEqual(sum('backup exclusion file is missing' in item for item in findings), 3)
+                    custom_excludes = custom / 'backup_excludes'
+                    custom_excludes.mkdir()
+                    for mode in ('path', 'source_tree', 'repo_worktree'):
+                        (custom_excludes / (mode + '.txt')).touch()
+                    self.assertEqual(checker.diagnose(root), (0, []))
+                    (custom_excludes / 'path.txt').unlink()
+                    with patch.dict(os.environ, {'BACKUP_EXCLUDES_DIR': str(excludes)}):
+                        self.assertEqual(checker.diagnose(root), (0, []))
+                    self.assertIn('backup exclusion file is missing: path.txt', checker.diagnose(root)[1])
                 settings.write_text('CORTEX_SESSION_BACKEND=broken\nCORTEX_PROMPT_LOG_RETENTION_DAYS=-1\nCORTEX_TYPO_OPTION=private-value-never-print\nSIGNAL_RELAY_HOST=example-relay\n')
                 code, findings = checker.diagnose(root)
                 self.assertEqual(code, 2)
@@ -220,6 +255,22 @@ class ConfigTests(unittest.TestCase):
                 self.assertEqual(checker.diagnose(root)[0], 2)
                 settings.unlink()
                 self.assertIn('settings.env is missing', '\n'.join(checker.diagnose(root)[1]))
+
+
+class UsageLabelTests(unittest.TestCase):
+    def test_usage_labels_pricing_basis_without_changing_totals(self):
+        report = module('usage_report')
+        rows = [{'provider': 'codex', 'model': 'fixture', 'total_tokens': '301000',
+                 'estimated_usd': '0.610000', 'estimate_note': 'exact_or_split'}]
+        summary = report.summarize(rows)
+        line = report.quiet_line(summary, 'fixture', Path('/nonexistent-fixture-ledger'))
+        self.assertIn('short-context Standard API-equivalent', line)
+        self.assertIn('context/tier adjustments excluded', line)
+        self.assertIn('$0.6100', line)
+        self.assertEqual(summary['total_tokens'], 301000)
+        self.assertEqual(summary['estimated_usd'], 0.61)
+        rows[0]['estimated_usd'] = ''
+        self.assertIn('est. n/a', report.quiet_line(report.summarize(rows), 'fixture', Path('/nonexistent-fixture-ledger')))
 
 
 if __name__ == '__main__':

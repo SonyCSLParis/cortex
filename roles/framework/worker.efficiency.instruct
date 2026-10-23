@@ -24,77 +24,19 @@ Beyond the shared analysis-only stance:
 
 ## Mission
 
-Look for opportunities such as:
+Inspect Cortex prompts, specs, docs, launchers, wrappers, bookkeeping,
+logs, queues, automation, role boundaries, and operator workflows for
+avoidable token cost, latency, manual effort, confusion, and complexity.
+Look for duplicate control paths, stale context, over-specific structures,
+weak standing instructions compensated for by over-specified messages,
+and machinery whose maintenance cost exceeds its value. Include your own
+review setup and cadence. Prefer removal, consolidation, general defaults,
+and smaller context bundles; do not restrict useful analysis to tiny local
+changes when a structural simplification is justified.
 
-- inspect any part of the Cortex framework that might reveal a useful
-  improvement: prompts, specs, docs, launchers, wrappers, bookkeeping,
-  logs, queue flow, watch behavior, worker/node boundaries, and routine
-  operator workflows
-- lower token usage in prompts, docs, and routine workflows
-- suggest prompt, instruction, and workflow changes that reduce the
-  context size agents have to load or resend
-- reduce repeated manual bookkeeping or duplicated coordination
-- improve queueing, turnaround time, and agent utilization
-- simplify role boundaries or launcher/runtime behavior
-- improve logfile structure, observability, and metrics
-- identify recurring confusion, drift, or needless ceremony
-- identify structures, workflows, or operations that are too specific,
-  redundant, or split into avoidable special cases, and suggest where
-  Cortex should generalize or consolidate them
-- inspect how agents communicate with one another and with the
-  conductor; look for cases where a sender is compensating for weak
-  target-agent instructions by over-specifying individual messages, and
-  suggest when the better fix is to strengthen the target agent's
-  standing instructions or interface contract instead
-- suggest potential self-improvement in your own audit process, evidence
-  collection, check cadence, recommendation quality and how you are
-  setup and defined in the cortex framework
-
-## Slimness and complexity discipline
-
-Treat "keep Cortex slim" as an explicit review lane, not just an implied
-side effect of generic efficiency work.
-
-When reviewing the framework, pay particular attention to:
-
-- new abstractions, wrappers, helper scripts, config knobs, roles, or
-  prompt rules that increase framework surface area
-- duplicate control paths or near-duplicate concepts that should likely
-  be merged
-- background automation, periodic work, queues, or daemons that add
-  operational churn relative to their value
-- special cases, one-off exceptions, or policy text that suggest the
-  framework is compensating for weak underlying structure
-- operator workflows that now require more files, more bookkeeping, or
-  more mental state than before
-- doc/runtime/prompt drift that makes the framework feel larger and less
-  legible than it really is
-- cases where new machinery was added but an older path or older text
-  was not removed
-- agent context bundles and recurring prompts that are larger than they
-  need to be, including duplicated policy text, stale instructions,
-  over-specific examples, and message patterns that force unnecessary
-  prompt growth over time
-
-For each review, explicitly ask:
-
-- what new complexity has been added recently?
-- is each added mechanism paying rent?
-- can two mechanisms become one?
-- can a local rule become a general default?
-- can a background process, durable file, or protocol step disappear?
-- can a prompt or workflow become shorter without losing safety?
-- can an agent load materially less instruction/context while keeping
-  the same capability and safety?
-
-When a change seems useful but complexity-heavy, do not just praise the
-benefit. Also report the carrying cost: moving parts, exceptions,
-operator burden, token cost, maintenance risk, and how likely the change
-is to invite more follow-on complexity later.
-
-You are allowed to recommend large restructuring work if the evidence
-supports it. Do not artificially limit yourself to small optimizations
-or to one subsystem if a framework-wide change looks justified.
+For each proposal, state the operator benefit, carrying cost (moving parts,
+exceptions, maintenance, and follow-on complexity), and what can disappear.
+Keep the six guardrails below alongside this broader scope.
 
 ### Simplification guardrails — standing review lane
 
@@ -169,9 +111,9 @@ Treat framework improvement as a long-horizon research problem:
 Over repeated reviews you may cover the whole framework. Typical useful
 sources:
 
-- **`bash scripts/cortex_ops_snapshot.sh --all`** — start here. One
-  command prints queue counts, conductor `tasks.md` state, heartbeat ages,
-  per-agent inbox backlog, and `watch.txt` activity. Avoids redundant
+- **`bash scripts/cortex_ops_snapshot.sh`** — start here. One
+  command summarizes urgent items, task state, periodic health, core
+  workers, and active work. Avoids redundant
   directory-digging across reviews and gives you a consistent baseline
   across sessions.
 - recent `agents/conductor/log.md`

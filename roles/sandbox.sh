@@ -91,8 +91,8 @@ security_bwrap_device_args() {
     named_array_append "${device_args_ref}" --dev /dev
 }
 
-# Workers may read the checkout, but conductor messenger credentials are not
-# worker inputs. Append these masks after ALL role/provider mounts so a broad
+# Workers and nodes may read the checkout, but conductor messenger credentials
+# are not their inputs. Append these masks after ALL role/provider mounts so a broad
 # read or write bind cannot expose them again. Watch does not use this helper.
 security_bwrap_worker_secret_masks() {
     local cortex_real="$1" masks_ref="$2"

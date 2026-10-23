@@ -19,8 +19,9 @@ communicates via file-based inbox queues. Agents differ by **role**:
   Started directly by `scripts/start_agent.sh` (or `scripts/start_agent.sh --role node`);
   long-lived screen-backed launches can use `scripts/start_agent_screen.sh --role node`.
 - `worker` — elevated task-execution agent using the same inbox /
-  response runtime as `node`, but with full host permissions and a
-  stricter destructive-action contract. Started directly by
+  response runtime as `node`, with elevated permissions bounded by the
+  selected launcher backend and a stricter destructive-action contract.
+  Started directly by
   `scripts/start_agent.sh --role worker --name <id>`; long-lived
   screen-backed launches can use
   `scripts/start_agent_screen.sh --role worker --name <id>`.
@@ -45,12 +46,12 @@ launcher. The wire protocol is the same for every role.
 
 Provider choice does **not** override role permissions. Node agents stay
 read/compute-only regardless of provider; the launcher must keep them in a
-non-destructive mode rather than bypassing approvals/sandboxing. Worker agents
-must stay inside launcher-enforced sandboxes: the worker's own
+non-destructive mode rather than bypassing approvals/sandboxing. On Linux,
+worker agents run inside launcher-enforced `bwrap` sandboxes: the worker's own
 `agents/{id}` directory is writable by default, and any broader write access
 must be a narrow named allow-list (for example `backup`'s snapshot root or
 `CORTEX_WORKER_BWRAP_RW` at launch). Current enforcement: Codex nodes run with
-a read-only Codex sandbox; Codex workers run inside launcher `bwrap`
+a read-only Codex sandbox; Linux Codex workers run inside launcher `bwrap`
 sandboxes with explicit write allow-lists plus a staged minimal `CODEX_HOME`
 copy in a private per-run temp directory so the full real `~/.codex` tree is
 not mounted into the worker filesystem or left behind under `agents/*`. The
@@ -67,9 +68,19 @@ conductor sends a direct one-off student COMMAND with the wrapper-only line
 its periodic checks keep only `agents/commit/` writable by default, while
 explicit COMMANDs may grant exact `WRITABLE_PATHS:` / `TARGETS:` plus the
 matching repo's git metadata; `.git/hooks` stays read-only unless the
-conductor explicitly adds `COMMIT_RW_ALLOW_HOOKS: yes`. Claude nodes and workers run inside a
-`bwrap` sandbox with PID isolation, and Claude gets only a scratch
-`~/.claude/session-env` bind writable.
+conductor explicitly adds `COMMIT_RW_ALLOW_HOOKS: yes`. Claude nodes and
+Linux Claude workers use `bwrap` with PID isolation; Claude's session-env
+scratch bind is writable alongside the role's allowed paths.
+
+macOS workers may use `macos-direct`, which provides no launcher filesystem
+isolation and runs provider tools with the host user's permissions. `auto`
+selects it on macOS when `bwrap` is absent; it can also be selected explicitly
+on macOS. This applies to framework reviewers as well as other workers;
+role instructions alone do not enforce their file-access boundaries in this
+backend. This portability tradeoff is accepted; no macOS isolation backend
+is required. Linux never falls back to direct execution: missing `bwrap`
+fails startup, and a failed `bwrap` invocation is not retried unisolated.
+Provider fallback retains the selected backend.
 
 All communication happens by writing/reading files under `CORTEX_DEFAULT_ROOT`.
 This directory must be shared or replicated across servers (e.g. NFS, rsync, or
@@ -143,7 +154,7 @@ ${CORTEX_DEFAULT_ROOT}/
 ├── agents/                  ← live agent registry (one subdir per agent)
 │   ├── conductor/           ← on-demand interactive control-plane agent
 │   │   ├── info             ← aggregate conductor runtime metadata
-│   │   ├── heartbeat        ← latest active conductor heartbeat
+│   │   ├── heartbeat        ← heartbeat of the newest-started active conductor session
 │   │   ├── status           ← aggregate idle | offline
 │   │   ├── active_sessions.tsv ← current live conductor sessions
 │   │   ├── tasks.md         ← conductor cross-project / operational task board

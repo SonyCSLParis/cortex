@@ -7,7 +7,7 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  bash scripts/prompt_log_sync_daemon.sh --cwd <repo> --session-dir <session-dir> [--interval <seconds>] [--parent-pid <pid>]
+  bash scripts/prompt_log_sync_daemon.sh --cwd <repo> --session-dir <session-dir> --provider codex|claude [--provider-session-id ID | --session-marker MARKER] [--interval <seconds>] [--parent-pid <pid>]
 
 Runs a session-local prompt/final-answer sync loop for one conductor session.
 The daemon performs one initial sync, repeats on the given interval, and does
@@ -19,6 +19,9 @@ EOF
 
 CWD=""
 SESSION_DIR=""
+PROVIDER=""
+PROVIDER_SESSION_ID=""
+SESSION_MARKER=""
 INTERVAL="${CORTEX_PROMPT_LOG_SYNC_INTERVAL:-5}"
 PARENT_PID=""
 
@@ -32,6 +35,12 @@ while [[ $# -gt 0 ]]; do
             SESSION_DIR="${2:-}"
             shift 2
             ;;
+        --provider)
+            PROVIDER="${2:-}"; shift 2 ;;
+        --provider-session-id)
+            PROVIDER_SESSION_ID="${2:-}"; shift 2 ;;
+        --session-marker)
+            SESSION_MARKER="${2:-}"; shift 2 ;;
         --interval)
             INTERVAL="${2:-}"
             shift 2
@@ -56,6 +65,10 @@ done
     usage >&2
     exit 2
 }
+if [[ "${PROVIDER}" != codex && "${PROVIDER}" != claude ]] || [[ -z "${PROVIDER_SESSION_ID}${SESSION_MARKER}" ]]; then
+    echo "prompt-log sync needs --provider and --provider-session-id or --session-marker" >&2
+    exit 2
+fi
 [[ "${INTERVAL}" =~ ^[0-9]+$ && "${INTERVAL}" -gt 0 ]] || {
     echo "Invalid --interval: ${INTERVAL}" >&2
     exit 2
@@ -81,6 +94,9 @@ sync_once() {
     python3 "${SYNC_PY}" \
         --cwd "${CWD}" \
         --session-dir "${SESSION_DIR}" \
+        --provider "${PROVIDER}" \
+        --provider-session-id "${PROVIDER_SESSION_ID}" \
+        --session-marker "${SESSION_MARKER}" \
         --log-path "${LOG_PATH}" \
         --state-path "${STATE_PATH}" >/dev/null 2>&1 || true
 }

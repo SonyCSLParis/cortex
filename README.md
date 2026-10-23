@@ -144,7 +144,7 @@ Minimum:
 - one provider CLI that Cortex can launch: `claude` or `codex` (no other
   provider value is accepted)
 - `bwrap` (bubblewrap) on Linux if you run workers: `scripts/start_agent.sh`
-  refuses to start a worker without a usable sandbox backend. On macOS the
+  refuses to start a worker without a supported launcher backend. On macOS the
   `auto` backend falls back to `macos-direct` when `bwrap` is missing
   (`CORTEX_WORKER_SANDBOX_BACKEND`, resolver in `roles/sandbox.sh`).
 
@@ -199,7 +199,7 @@ Safe defaults are disclosed during that chat: nothing unattended starts by
 itself; the conductor and shipped named workers default to Codex, while nodes
 default to Claude. `CORTEX_AGENT_PROVIDER` overrides the node/worker default;
 explicit launch flags take precedence. Interactive conductor permissions keep
-the provider configuration unless overridden. Workers use provider approval
+the provider configuration unless overridden. Linux workers use provider approval
 bypasses inside launcher filesystem sandboxes; macOS `macos-direct` lacks that
 filesystem isolation. The initial backup manifest covers only the Cortex worktree.
 Public release is always a sanitized export via `scripts/sync_public.sh`, never
@@ -289,7 +289,9 @@ To resume the most recent conductor chat with its existing model/context, use:
 bash cortex.sh --resume
 ```
 
-`--resume` reuses the last conductor provider and its native session history.
+`--resume` reuses the last conductor provider and resolves its latest matching
+native session once, then resumes that exact id. If no matching native history
+is available, it reports an error instead of guessing a session.
 If you pass `--provider` together with `--resume`, Cortex warns and ignores
 `--provider` so it can resume the correct provider session cleanly. `--model`
 can be combined with `--resume` to switch the model on the resumed session.
@@ -436,12 +438,21 @@ Other deterministic operator views (no LLM calls):
   auto-start (`cortex.sh` runs `heal` at chat entry, watch runs it on every
   wake)
 - `scripts/prompt_log_sync_daemon.sh --cwd <repo> --session-dir <dir>
+  --provider codex|claude [--provider-session-id ID | --session-marker MARKER]
   [--interval N] [--parent-pid PID]`: per-session conductor prompt-log sync
   loop, started by `cortex.sh`
 
 Interactive terminal output is temporarily captured for usage accounting and
 removed after the provider exits. Prompts and final answers are also copied
-from provider histories to each conductor session's `prompt_log.txt`. Configure
+from provider histories to each conductor session's `prompt_log.txt`. Fresh
+launches include a unique marker in the startup prompt; the sync helper uses
+it to bind the transcript to one native provider session id. Resumed windows
+use the exact id selected by the launcher and collect only subsequent turns.
+The binding is retained in the existing transcript cursor file. Collection
+never falls back to matching only the checkout path; absent or ambiguous
+bindings prevent collection. Existing pre-change conductor windows need to
+be relaunched for this binding, and old transcript contents are not rewritten.
+Configure
 these independently in `environments/<env>/settings.env`:
 
 - `CORTEX_TTY_RECORDING_DISABLE=1`: disable Cortex terminal capture.
@@ -600,7 +611,7 @@ These workers are analysis-first by default: they inspect one framework/runtime 
 | --- | --- | --- | --- | --- |
 | `calibration` | persistent | daily | no | per-agent behavior-vs-instruction drift; proposes targeted instruction edits |
 | `consistency` | persistent | daily | no | ownership-boundary drift: project facts in wrong files, duplicated rules across layers |
-| `efficiency` | persistent | every 6h | no | workflow inefficiencies: repeated conductor work, avoidable token burn, missing shortcuts |
+| `efficiency` | persistent | daily | no | workflow inefficiencies: repeated conductor work, avoidable token burn, missing shortcuts |
 | `environment` | persistent | daily | no | infrastructure ground-truth drift: cheat sheet vs ssh config; host/GPU/NAS/IP probes |
 | `memory` | persistent | daily | no | hygiene of durable memory surfaces: stale/duplicate rows, orphaned logbook entries |
 | `metacortex` | on-demand | manual only | no | bounded on-demand reflection over Cortex as a whole; maintains own notes.txt |
@@ -655,7 +666,7 @@ see `roles/agent_building.md` for the bundle/layout spec that any new agent
 fleet should follow, and `roles/research.instruct` for this cluster's codified
 workflow.
 
-Research workers run under a "broad read, fenced write" sandbox implemented
+On Linux, research workers use a "broad read, fenced write" sandbox implemented
 by `roles/research/research.sh` on top of the shared `roles/sandbox.sh`: the
 read base is `CORTEX_RESEARCH_RO_BASE` (default `/`, mounted read-only), the
 secret/credential paths listed in `CORTEX_RESEARCH_RO_MASK` are masked back

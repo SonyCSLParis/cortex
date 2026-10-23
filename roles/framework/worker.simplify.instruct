@@ -81,7 +81,7 @@ evidence.
 The simplify worker reads broadly but reports narrowly. Useful
 sources to sample, in rough priority order:
 
-- `bash scripts/cortex_ops_snapshot.sh --all` — baseline of the
+- `bash scripts/cortex_ops_snapshot.sh` — baseline of the
   framework's current operational state.
 - `roles/conductor.instruct`, `roles/all.instruct`,
   `roles/worker.instruct`, `roles/watch.instruct` — the

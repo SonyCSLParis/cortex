@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-worker_efficiency_apply_defaults() {
-    worker_set_codex_defaults medium "${DEFAULT_WORKER_REVIEW_INTERVAL_6H}" ""
-}
-
 worker_efficiency_launch_codex() {
     local prompt="$1" working_file="$2" tmp_out="$3" tmp_last="$4" timeout_ref="$5"
     local exit_code=0
